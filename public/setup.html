@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trading Bot Setup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .step {
+            display: none;
+        }
+        
+        .step.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            width: 100%;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .button-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .button-secondary:hover {
+            background: #d0d0d0;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .progress {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        
+        .progress-step {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            position: relative;
+        }
+        
+        .progress-step::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: #e0e0e0;
+            z-index: -1;
+        }
+        
+        .progress-step:first-child::before {
+            left: 50%;
+            width: 50%;
+        }
+        
+        .progress-step:last-child::before {
+            width: 50%;
+        }
+        
+        .progress-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            background: #e0e0e0;
+            color: #666;
+            border-radius: 50%;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .progress-step.active .progress-number {
+            background: #667eea;
+            color: white;
+        }
+        
+        .progress-step.completed .progress-number {
+            background: #28a745;
+            color: white;
+        }
+        
+        .account-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .account-card:hover {
+            border-color: #667eea;
+        }
+        
+        .account-card.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .channel-option {
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .channel-option:hover {
+            border-color: #667eea;
+        }
+        
+        .channel-option.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .channel-tier {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Trading Bot Setup</h1>
+        <p class="subtitle">Configure your automated trading bot</p>
+        
+        <!-- Progress indicator -->
+        <div class="progress">
+            <div class="progress-step active" data-step="1">
+                <div class="progress-number">1</div>
+                <div>Tastytrade</div>
+            </div>
+            <div class="progress-step" data-step="2">
+                <div class="progress-number">2</div>
+                <div>Channel</div>
+            </div>
+            <div class="progress-step" data-step="3">
+                <div class="progress-number">3</div>
+                <div>Settings</div>
+            </div>
+        </div>
+        
+        <div class="status" id="status"></div>
+        
+        <!-- Step 1: Tastytrade Connection -->
+        <div class="step active" data-step="1">
+            <h2>Step 1: Connect Tastytrade</h2>
+            <p class="help-text" style="margin-bottom: 20px;">
+                Note: Make sure DISCORD_BOT_TOKEN is set in your .env file before starting.
+            </p>
+            
+            <div class="form-group">
+                <label>Tastytrade Username *</label>
+                <input type="text" id="tastyUsername" placeholder="Your Tastytrade username">
+            </div>
+            
+            <div class="form-group">
+                <label>Tastytrade Password *</label>
+                <input type="password" id="tastyPassword" placeholder="Your Tastytrade password">
+                <p class="help-text">
+                    Your credentials are encrypted and stored only on YOUR server
+                </p>
+            </div>
+            
+            <div id="accountsList" style="margin-top: 20px; display: none;">
+                <h3>Select Account: *</h3>
+                <p class="help-text" style="margin-bottom: 10px; color: #d32f2f; display: none;" id="accountRequired">Please select an account to continue</p>
+                <div id="accounts"></div>
+            </div>
+            
+            <div class="button-group">
+                <button class="button-secondary" onclick="prevStep()">← Back</button>
+                <button id="testButton" onclick="testTastytrade()">Test Connection</button>
+                <button id="continueButton" onclick="continueAfterAccount()" style="display: none;">Continue →</button>
+            </div>
+        </div>
+        
+        <!-- Step 2: Select Channel -->
+        <div class="step" data-step="2">
+            <h2>Step 2: Select Signal Channel</h2>
+            <p class="help-text" style="margin-bottom: 20px;">
+                Based on your subscription tier
+            </p>
+            
+            <div id="channelsList">
+                <!-- Populated dynamically -->
+            </div>
+            
+            <div class="button-group" style="margin-top: 20px;">
+                <button class="button-secondary" onclick="prevStep()">← Back</button>
+                <button onclick="selectChannel()">Next →</button>
+            </div>
+        </div>
+        
+        <!-- Step 3: Position Sizing -->
+        <div class="step" data-step="3">
+            <h2>Step 3: Position Sizing</h2>
+            
+            <div class="form-group">
+                <label>Position Sizing Method</label>
+                <select id="sizingMethod" onchange="updateSizingInputs()">
+                    <option value="fixed">Fixed Quantity</option>
+                    <option value="multiplier">Signal Multiplier</option>
+                    <option value="percentage">Account Percentage</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="fixedInput">
+                <label>Fixed Quantity</label>
+                <input type="number" id="fixedQuantity" value="1" min="1">
+                <p class="help-text">Always trade this many contracts/shares</p>
+            </div>
+            
+            <div class="form-group" id="multiplierInput" style="display:none;">
+                <label>Multiplier</label>
+                <input type="number" id="multiplier" value="1" min="0.1" max="10" step="0.1">
+                <p class="help-text">
+                    If signal says "Buy 10", you'll trade 10 × multiplier
+                </p>
+            </div>
+            
+            <div class="form-group" id="percentageInput" style="display:none;">
+                <label>Account Percentage (%)</label>
+                <input type="number" id="percentage" value="5" min="1" max="50">
+                <p class="help-text">Use X% of buying power per trade</p>
+            </div>
+            
+            <div class="form-group">
+                <label>Max Daily Trades</label>
+                <input type="number" id="maxDailyTrades" value="10" min="1">
+            </div>
+            
+            <div class="form-group">
+                <label>Max Daily Loss ($)</label>
+                <input type="number" id="maxDailyLoss" value="1000" min="100" step="100">
+            </div>
+            
+            <div class="button-group">
+                <button class="button-secondary" onclick="prevStep()">← Back</button>
+                <button onclick="saveConfiguration()">🚀 Start Bot</button>
+            </div>
+        </div>
+        
+        <!-- Success Message -->
+        <div class="step" data-step="4">
+            <div style="text-align: center;">
+                <h2 style="color: #28a745; margin-bottom: 20px;">✅ Bot Configured!</h2>
+                <p style="margin-bottom: 20px;">
+                    Your trading bot is now running and listening for signals.
+                </p>
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+                    <p><strong>Listening to:</strong> <span id="finalChannel"></span></p>
+                    <p><strong>Tastytrade Account:</strong> <span id="finalAccount"></span></p>
+                    <p><strong>Position Sizing:</strong> <span id="finalSizing"></span></p>
+                </div>
+                <p style="font-size: 14px; color: #666;">
+                    Your bot will automatically execute trades when signals appear in your selected channel.
+                    You can close this window now.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let config = {
+            tastytradeUsername: '',
+            tastytradePassword: '',
+            tastytradeAccountNumber: '',
+            channelId: '',
+            channelName: '',
+            sizingMethod: 'fixed',
+            quantity: 1,
+            multiplier: 1,
+            percentage: 5,
+            maxDailyTrades: 10,
+            maxDailyLoss: 1000
+        };
+        
+        let currentStep = 1;
+        let availableChannels = [];
+        
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+        }
+        
+        function hideStatus() {
+            document.getElementById('status').style.display = 'none';
+        }
+        
+        async function loadChannels() {
+            try {
+                showStatus('Loading available channels...', 'success');
+                
+                const response = await fetch('/api/get-channels');
+                
+                if (!response.ok) {
+                    const text = await response.text();
+                    let errorMessage = `Server error (${response.status})`;
+                    try {
+                        const errorJson = JSON.parse(text);
+                        errorMessage = errorJson.error || errorMessage;
+                    } catch (e) {
+                        // If response is HTML, show generic error
+                        if (text.includes('<!DOCTYPE')) {
+                            errorMessage = `Server returned an error page. Check server logs.`;
+                        } else {
+                            errorMessage = text || errorMessage;
+                        }
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+                
+                availableChannels = result.channels;
+                
+                if (availableChannels.length === 0) {
+                    showStatus('No channels available. Check your subscription.', 'error');
+                    return false;
+                }
+                
+                return true;
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+                return false;
+            }
+        }
+        
+        async function testTastytrade() {
+            const username = document.getElementById('tastyUsername').value;
+            const password = document.getElementById('tastyPassword').value;
+            
+            if (!username || !password) {
+                showStatus('Please enter your Tastytrade credentials', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('Testing connection...', 'success');
+                
+                const response = await fetch('/api/test-tastytrade', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!response.ok) {
+                    const text = await response.text();
+                    let errorMessage = `Server error (${response.status})`;
+                    try {
+                        const errorJson = JSON.parse(text);
+                        errorMessage = errorJson.error || errorMessage;
+                    } catch (e) {
+                        // If response is HTML, show generic error
+                        if (text.includes('<!DOCTYPE')) {
+                            errorMessage = `Server returned an error page. Check server logs.`;
+                        } else {
+                            errorMessage = text || errorMessage;
+                        }
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+                
+                config.tastytradeUsername = username;
+                config.tastytradePassword = password;
+                
+                // Show accounts
+                const accountsList = document.getElementById('accountsList');
+                const accountsDiv = document.getElementById('accounts');
+                accountsDiv.innerHTML = '';
+                
+                result.accounts.forEach(account => {
+                    const card = document.createElement('div');
+                    card.className = 'account-card';
+                    card.innerHTML = `
+                        <strong>${account.nickname || 'Account'}</strong><br>
+                        <small>${account.number}</small>
+                    `;
+                    card.onclick = () => {
+                        document.querySelectorAll('.account-card').forEach(c => 
+                            c.classList.remove('selected')
+                        );
+                        card.classList.add('selected');
+                        config.tastytradeAccountNumber = account.number;
+                        
+                        // Hide error message and enable continue button
+                        document.getElementById('accountRequired').style.display = 'none';
+                        document.getElementById('testButton').style.display = 'none';
+                        document.getElementById('continueButton').style.display = 'inline-block';
+                        document.getElementById('continueButton').disabled = false;
+                    };
+                    accountsDiv.appendChild(card);
+                });
+                
+                accountsList.style.display = 'block';
+                showStatus('Connection successful! Please select your account.', 'success');
+                
+                // Hide test button, show continue button (but disable until account selected)
+                document.getElementById('testButton').style.display = 'none';
+                document.getElementById('continueButton').style.display = 'inline-block';
+                document.getElementById('continueButton').disabled = true;
+                
+                // Auto-select if only one account
+                if (result.accounts.length === 1) {
+                    config.tastytradeAccountNumber = result.accounts[0].number;
+                    const firstCard = document.querySelector('.account-card');
+                    if (firstCard) {
+                        firstCard.classList.add('selected');
+                        document.getElementById('accountRequired').style.display = 'none';
+                        document.getElementById('continueButton').disabled = false;
+                    }
+                }
+                
+            } catch (error) {
+                showStatus('Connection failed: ' + error.message, 'error');
+                // Reset button state on error
+                document.getElementById('testButton').style.display = 'inline-block';
+                document.getElementById('continueButton').style.display = 'none';
+            }
+        }
+        
+        async function continueAfterAccount() {
+            if (!config.tastytradeAccountNumber) {
+                document.getElementById('accountRequired').style.display = 'block';
+                showStatus('Please select an account to continue', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('Loading channels...', 'success');
+                
+                // Load channels and proceed to next step
+                const channelsLoaded = await loadChannels();
+                if (channelsLoaded) {
+                    nextStep();
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+        
+        function selectChannel() {
+            if (!config.channelId) {
+                showStatus('Please select a channel', 'error');
+                return;
+            }
+            nextStep();
+        }
+        
+        function updateSizingInputs() {
+            const method = document.getElementById('sizingMethod').value;
+            
+            document.getElementById('fixedInput').style.display = 
+                method === 'fixed' ? 'block' : 'none';
+            document.getElementById('multiplierInput').style.display = 
+                method === 'multiplier' ? 'block' : 'none';
+            document.getElementById('percentageInput').style.display = 
+                method === 'percentage' ? 'block' : 'none';
+        }
+        
+        async function saveConfiguration() {
+            // Collect all configuration
+            config.sizingMethod = document.getElementById('sizingMethod').value;
+            config.quantity = parseInt(document.getElementById('fixedQuantity').value);
+            config.multiplier = parseFloat(document.getElementById('multiplier').value);
+            config.percentage = parseInt(document.getElementById('percentage').value);
+            config.maxDailyTrades = parseInt(document.getElementById('maxDailyTrades').value);
+            config.maxDailyLoss = parseFloat(document.getElementById('maxDailyLoss').value);
+            
+            try {
+                showStatus('Saving configuration...', 'success');
+                
+                const response = await fetch('/api/save-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                if (!response.ok) {
+                    const text = await response.text();
+                    let errorMessage = `Server error (${response.status})`;
+                    try {
+                        const errorJson = JSON.parse(text);
+                        errorMessage = errorJson.error || errorMessage;
+                    } catch (e) {
+                        // If response is HTML, show generic error
+                        if (text.includes('<!DOCTYPE')) {
+                            errorMessage = `Server returned an error page. Check server logs.`;
+                        } else {
+                            errorMessage = text || errorMessage;
+                        }
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+                
+                // Show final summary
+                document.getElementById('finalChannel').textContent = config.channelName;
+                document.getElementById('finalAccount').textContent = config.tastytradeAccountNumber;
+                
+                let sizingText = '';
+                if (config.sizingMethod === 'fixed') {
+                    sizingText = `Fixed: ${config.quantity} contracts`;
+                } else if (config.sizingMethod === 'multiplier') {
+                    sizingText = `${config.multiplier}x signal quantity`;
+                } else {
+                    sizingText = `${config.percentage}% of account`;
+                }
+                document.getElementById('finalSizing').textContent = sizingText;
+                
+                nextStep();
+                
+            } catch (error) {
+                showStatus('Save failed: ' + error.message, 'error');
+            }
+        }
+        
+        function nextStep() {
+            hideStatus();
+            
+            // Hide current step
+            const currentStepEl = document.querySelector(`.step[data-step="${currentStep}"]`);
+            if (currentStepEl) {
+                currentStepEl.classList.remove('active');
+            }
+            
+            // Update progress indicator (only if progress step exists)
+            const currentProgressStep = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
+            if (currentProgressStep) {
+                currentProgressStep.classList.add('completed');
+                currentProgressStep.classList.remove('active');
+            }
+            
+            // Show next step
+            currentStep++;
+            const nextStepEl = document.querySelector(`.step[data-step="${currentStep}"]`);
+            if (nextStepEl) {
+                nextStepEl.classList.add('active');
+            }
+            
+            // Update progress indicator for next step (only if it exists)
+            const nextProgressStep = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
+            if (nextProgressStep) {
+                nextProgressStep.classList.add('active');
+            }
+            
+            // Render channels when entering step 2 (channel selection)
+            if (currentStep === 2) {
+                renderChannels();
+            }
+        }
+        
+        function prevStep() {
+            hideStatus();
+            
+            const currentStepEl = document.querySelector(`.step[data-step="${currentStep}"]`);
+            if (currentStepEl) {
+                currentStepEl.classList.remove('active');
+            }
+            
+            const currentProgressStep = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
+            if (currentProgressStep) {
+                currentProgressStep.classList.remove('active');
+            }
+            
+            currentStep--;
+            
+            const prevStepEl = document.querySelector(`.step[data-step="${currentStep}"]`);
+            if (prevStepEl) {
+                prevStepEl.classList.add('active');
+            }
+            
+            const prevProgressStep = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
+            if (prevProgressStep) {
+                prevProgressStep.classList.add('active');
+                prevProgressStep.classList.remove('completed');
+            }
+        }
+        
+        function renderChannels() {
+            const channelsList = document.getElementById('channelsList');
+            channelsList.innerHTML = '';
+            
+            if (availableChannels.length === 0) {
+                channelsList.innerHTML = '<p style="color: #666;">No channels available. Make sure DISCORD_BOT_TOKEN is set in your .env file.</p>';
+                return;
+            }
+            
+            availableChannels.forEach(channel => {
+                const option = document.createElement('div');
+                option.className = 'channel-option';
+                option.innerHTML = `
+                    <strong>${channel.name}</strong>
+                    <span class="channel-tier">${channel.tier}</span>
+                    <br>
+                    <small style="color: #666;">${channel.description || 'Trading signals'}</small>
+                `;
+                option.onclick = () => {
+                    document.querySelectorAll('.channel-option').forEach(c => 
+                        c.classList.remove('selected')
+                    );
+                    option.classList.add('selected');
+                    config.channelId = channel.id;
+                    config.channelName = channel.name;
+                };
+                channelsList.appendChild(option);
+            });
+        }
+    </script>
+</body>
+</html>
+
+
