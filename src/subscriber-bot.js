@@ -1,9 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const ConfigManager = require('./src/ConfigManager');
-const DiscordListener = require('./src/DiscordListener');
-const TastytradeExecutor = require('./src/TastytradeExecutor');
+const ConfigManager = require('./ConfigManager');
+const DiscordListener = require('./DiscordListener');
+const TastytradeExecutor = require('./TastytradeExecutor');
 
 /**
  * Subscriber Bot Main Entry Point
@@ -19,10 +19,10 @@ async function main() {
     // Start web server for configuration
     const app = express();
     app.use(express.json());
-    app.use(express.static(path.join(__dirname, 'public')));
+    app.use(express.static(path.join(__dirname, '../public')));
     
     // Configuration endpoints
-    require('./config/setup-server')(app, configManager);
+    require('../config/setup-server')(app, configManager);
     
     const port = process.env.PORT || 3000;
     app.listen(port, '0.0.0.0', () => {

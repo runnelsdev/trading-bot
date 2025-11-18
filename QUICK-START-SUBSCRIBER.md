@@ -4,7 +4,7 @@
 
 ### ✅ Core System Files
 
-1. **`subscriber-bot.js`** - Main entry point
+1. **`src/subscriber-bot.js`** - Main entry point
    - Handles configuration mode (first run)
    - Handles bot mode (after configuration)
    - Auto-detects which mode to use
@@ -75,13 +75,13 @@
 
 ```bash
 # Test configuration mode
-FIRST_RUN=true PORT=3000 node subscriber-bot.js
+FIRST_RUN=true PORT=3000 node src/subscriber-bot.js
 
 # Open browser: http://localhost:3000
 # Complete setup
 
 # Test bot mode (after configuration)
-node subscriber-bot.js
+node src/subscriber-bot.js
 ```
 
 ## Digital Ocean Deployment

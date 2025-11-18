@@ -29,7 +29,7 @@ User configures:
 ## Files Created
 
 ### Core Application
-- `subscriber-bot.js` - Main entry point (handles config mode and bot mode)
+- `src/subscriber-bot.js` - Main entry point (handles config mode and bot mode)
 - `src/ConfigManager.js` - Secure configuration storage with encryption
 - `src/DiscordListener.js` - Listens to Discord for trading signals
 - `src/TastytradeExecutor.js` - Executes trades in Tastytrade
@@ -149,10 +149,10 @@ CHANNEL_TIER3_ID=channel_id_3
 
 ```bash
 # Test configuration mode
-FIRST_RUN=true node subscriber-bot.js
+FIRST_RUN=true node src/subscriber-bot.js
 
 # Test bot mode (after configuration)
-node subscriber-bot.js
+node src/subscriber-bot.js
 ```
 
 ### Digital Ocean Testing
