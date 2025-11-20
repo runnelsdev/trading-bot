@@ -67,6 +67,19 @@ class TastytradeExecutor {
   }
 
   /**
+   * Get appropriate time-in-force based on current time
+   * Valid Tastytrade values: Day, GTC (Good Till Canceled), IOC (Immediate or Cancel), FOK (Fill or Kill)
+   * Note: "EXT" is not a valid time-in-force value. For extended hours, we use "Day" and let Tastytrade handle routing.
+   * Regular hours: 9:30am - 3:15pm CT (14:30 - 20:15 UTC)
+   */
+  getTimeInForce() {
+    // Tastytrade doesn't have "EXT" as a time-in-force value
+    // The API will automatically route Day orders during extended hours if the account allows it
+    // If Day orders fail outside hours, we'll need to handle that with retry logic
+    return 'Day';
+  }
+
+  /**
    * Execute trade from signal
    */
   async executeTrade(signal) {
@@ -95,12 +108,17 @@ class TastytradeExecutor {
       
       console.log(`📊 Executing: ${signal.action} ${quantity} ${signal.symbol}`);
       
-      // Build order
+      // Determine time-in-force based on market hours
+      // EXT allows extended hours trading, Day only works during regular hours (9:30am-3:15pm CT)
+      // Use EXT by default to allow trading outside regular hours
+      const timeInForce = signal.timeInForce || this.getTimeInForce();
+      
+      // Build order for equity
+      // For simple equity orders, we don't need 'underlying-symbol' or 'legs' structure
       const orderData = {
-        'time-in-force': 'Day',
+        'time-in-force': timeInForce,
         'order-type': signal.orderType || 'Market',
         'size': quantity,
-        'underlying-symbol': signal.symbol,
         'legs': [{
           'instrument-type': 'Equity',
           'symbol': signal.symbol,
@@ -109,37 +127,120 @@ class TastytradeExecutor {
         }]
       };
       
+      // Log order data for debugging
+      console.log(`📦 Order data:`, JSON.stringify(orderData, null, 2));
+      
       // Execute order
       const isComplex = signal.legs && signal.legs.length > 1;
       let result;
       
-      if (isComplex) {
-        result = await this.client.orderService.createComplexOrder(
-          this.config.tastytradeAccountNumber,
-          orderData
-        );
-      } else {
-        result = await this.client.orderService.createOrder(
-          this.config.tastytradeAccountNumber,
-          orderData
-        );
+      try {
+        if (isComplex) {
+          result = await this.client.orderService.createComplexOrder(
+            this.config.tastytradeAccountNumber,
+            orderData
+          );
+        } else {
+          result = await this.client.orderService.createOrder(
+            this.config.tastytradeAccountNumber,
+            orderData
+          );
+        }
+        
+        this.tradesExecutedToday++;
+        
+        const orderId = result.data?.order?.id || result.data?.order?.['order-id'] || 'unknown';
+        console.log(`✅ Trade executed: Order ID ${orderId}`);
+        
+        return {
+          success: true,
+          orderId,
+          quantity,
+          symbol: signal.symbol,
+          action: signal.action
+        };
+      } catch (orderError) {
+        // Enhanced error logging for 422 validation errors
+        if (orderError.response) {
+          console.error(`❌ API Error (${orderError.response.status}):`, orderError.response.statusText);
+          console.error(`📋 Response data:`, JSON.stringify(orderError.response.data, null, 2));
+          
+          if (orderError.response.status === 422) {
+            console.error(`\n💡 Validation Error Details:`);
+            let shouldRetry = false;
+            
+            if (orderError.response.data?.errors) {
+              for (const err of orderError.response.data.errors) {
+                console.error(`   - ${err.code || 'unknown'}: ${err.message || err}`);
+                
+                // Auto-fix suggestion for time-in-force errors
+                if (err.code === 'tif_day_invalid_intersession') {
+                  shouldRetry = true;
+                }
+              }
+            }
+            
+            if (orderError.response.data?.message) {
+              console.error(`   Message: ${orderError.response.data.message}`);
+            }
+            
+            // Retry with GTC if we got the time-in-force error (GTC works outside regular hours)
+            if (shouldRetry) {
+              console.error(`\n💡 Suggestion: Retry with GTC (Good Till Canceled) time-in-force`);
+              console.error(`   GTC orders can be placed outside regular trading hours`);
+              console.error(`   The order will be retried automatically with GTC...`);
+              
+              // Retry with GTC (Good Till Canceled) which works outside regular hours
+              orderData['time-in-force'] = 'GTC';
+              console.log(`🔄 Retrying order with GTC time-in-force...`);
+              
+              try {
+                if (isComplex) {
+                  result = await this.client.orderService.createComplexOrder(
+                    this.config.tastytradeAccountNumber,
+                    orderData
+                  );
+                } else {
+                  result = await this.client.orderService.createOrder(
+                    this.config.tastytradeAccountNumber,
+                    orderData
+                  );
+                }
+                
+                this.tradesExecutedToday++;
+                const orderId = result.data?.order?.id || result.data?.order?.['order-id'] || 'unknown';
+                console.log(`✅ Trade executed (with GTC): Order ID ${orderId}`);
+                
+                return {
+                  success: true,
+                  orderId,
+                  quantity,
+                  symbol: signal.symbol,
+                  action: signal.action,
+                  timeInForce: 'GTC'
+                };
+              } catch (retryError) {
+                console.error(`❌ Retry also failed: ${retryError.message}`);
+                if (retryError.response) {
+                  console.error(`   Status: ${retryError.response.status}`);
+                  console.error(`   Data:`, JSON.stringify(retryError.response.data, null, 2));
+                }
+                throw retryError;
+              }
+            }
+          }
+        }
+        throw orderError; // Re-throw to be caught by outer catch
       }
-      
-      this.tradesExecutedToday++;
-      
-      const orderId = result.data?.order?.id || result.data?.order?.['order-id'] || 'unknown';
-      console.log(`✅ Trade executed: Order ID ${orderId}`);
-      
-      return {
-        success: true,
-        orderId,
-        quantity,
-        symbol: signal.symbol,
-        action: signal.action
-      };
       
     } catch (error) {
       console.error('❌ Trade execution failed:', error.message);
+      
+      // Log full error details if available
+      if (error.response) {
+        console.error(`   Status: ${error.response.status}`);
+        console.error(`   Data:`, JSON.stringify(error.response.data, null, 2));
+      }
       
       // Update loss if it was a losing trade (simplified)
       // In production, you'd track actual P&L
@@ -147,7 +248,9 @@ class TastytradeExecutor {
       return {
         success: false,
         reason: 'execution_error',
-        error: error.message
+        error: error.message,
+        statusCode: error.response?.status,
+        details: error.response?.data
       };
     }
   }

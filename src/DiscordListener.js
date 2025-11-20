@@ -27,27 +27,80 @@ class DiscordListener {
   async start() {
     console.log('🔌 Connecting to Discord...');
     
-    // Login
-    await this.client.login(this.config.discordBotToken);
+    // Set up error handlers before login
+    this.client.on('error', (error) => {
+      console.error('❌ Discord client error:', error.message);
+    });
     
-    // Wait for ready
-    await new Promise((resolve) => {
-      this.client.once('ready', () => {
-        console.log(`✅ Discord connected as ${this.client.user.tag}`);
-        
-        // Get channel
-        this.channel = this.client.channels.cache.get(this.config.channelId);
-        
-        if (!this.channel) {
-          console.error(`❌ Channel ${this.config.channelId} not found`);
-          throw new Error('Channel not found');
-        }
-        
-        console.log(`📡 Listening to channel: #${this.channel.name}`);
-        this.isRunning = true;
+    this.client.on('warn', (warning) => {
+      console.warn('⚠️  Discord warning:', warning);
+    });
+    
+    // Wait for ready with timeout
+    const readyPromise = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Discord connection timeout after 15 seconds. Check your token and network connection.'));
+      }, 15000); // 15 second timeout
+      
+      // Use clientReady for Discord.js v14+ (ready is deprecated)
+      this.client.once('clientReady', () => {
+        clearTimeout(timeout);
         resolve();
       });
+      
+      // Fallback for older versions
+      this.client.once('ready', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      
+      this.client.once('error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
     });
+    
+    try {
+      // Login
+      await this.client.login(this.config.discordBotToken);
+      console.log('⏳ Waiting for Discord ready event...');
+      
+      // Wait for ready event
+      await readyPromise;
+      
+      console.log(`✅ Discord connected as ${this.client.user.tag}`);
+      
+      // Get channel
+      this.channel = this.client.channels.cache.get(this.config.channelId);
+      
+      if (!this.channel) {
+        console.error(`❌ Channel ${this.config.channelId} not found`);
+        console.error(`💡 Available channels in server:`);
+        this.client.guilds.cache.forEach(guild => {
+          guild.channels.cache.forEach(channel => {
+            if (channel.type === 0) { // Text channel
+              console.error(`   - #${channel.name} (${channel.id})`);
+            }
+          });
+        });
+        throw new Error(`Channel ${this.config.channelId} not found. Check your channel ID in config.`);
+      }
+      
+      console.log(`📡 Listening to channel: #${this.channel.name}`);
+      this.isRunning = true;
+      
+    } catch (error) {
+      console.error('❌ Failed to connect to Discord:', error.message);
+      if (error.message.includes('Invalid token')) {
+        console.error('💡 Check that DISCORD_BOT_TOKEN in .env is correct');
+      } else if (error.message.includes('timeout')) {
+        console.error('💡 Discord connection timed out. Check:');
+        console.error('   1. Your internet connection');
+        console.error('   2. Discord service status');
+        console.error('   3. Bot token is valid');
+      }
+      throw error;
+    }
     
     // Listen for messages
     this.client.on('messageCreate', async (message) => {
@@ -62,7 +115,23 @@ class DiscordListener {
     // Only process messages from subscribed channel
     if (message.channel.id !== this.config.channelId) return;
     
-    // Ignore bot messages
+    // Log all messages for monitoring (except bot messages)
+    if (!message.author.bot) {
+      const timestamp = new Date().toISOString();
+      const author = message.author.tag;
+      const content = message.content || '[No text content]';
+      const hasEmbeds = message.embeds.length > 0;
+      
+      console.log(`📨 [${timestamp}] ${author} in #${message.channel.name}:`);
+      if (content && content !== '[No text content]') {
+        console.log(`   ${content.substring(0, 200)}${content.length > 200 ? '...' : ''}`);
+      }
+      if (hasEmbeds) {
+        console.log(`   📎 ${message.embeds.length} embed(s) attached`);
+      }
+    }
+    
+    // Ignore bot messages for signal processing
     if (message.author.bot) return;
     
     // Check for signal in embeds

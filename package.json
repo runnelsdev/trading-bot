@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "subscriber": "node src/subscriber-bot.js",
     "test-discord": "node src/test-discord-connection.js",
+    "test-discord-bot": "node src/test-discord-bot.js",
     "update-sidecar": "node src/update-sidecar.js",
     "update-sidecar:pm2": "pm2 start src/update-sidecar.js --name update-sidecar --no-autorestart"
   },
