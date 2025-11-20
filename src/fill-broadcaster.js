@@ -57,11 +57,35 @@ class FillBroadcaster {
       vip: null,
       premium: null,
       basic: null,
-      errors: []
+      errors: [],
+      validation: null
     };
 
+    // Validate fill data
+    const validation = this.validateFill(fill);
+    results.validation = validation;
+
+    if (!validation.isValid) {
+      console.warn(`⚠️  Invalid fill data: ${validation.errors.join(', ')}`);
+      
+      // If critical fields missing, don't broadcast
+      if (validation.critical) {
+        results.errors.push({
+          tier: 'all',
+          error: `Critical validation failed: ${validation.errors.join(', ')}`
+        });
+        return results;
+      }
+      
+      // Otherwise, log warning but continue with sanitized data
+      console.warn(`⚠️  Proceeding with sanitized fill data`);
+    }
+
+    // Sanitize fill data
+    const sanitizedFill = this.sanitizeFill(fill);
+
     // Store fill in history
-    this.addToHistory(fill);
+    this.addToHistory(sanitizedFill);
 
     // Determine which tiers should receive this fill
     let tiers;
@@ -72,7 +96,7 @@ class FillBroadcaster {
       console.log(`📋 Fill for signal ${originalSignalId} → sending to same tiers: ${tiers.join(', ')}`);
     } else {
       // Determine tiers based on fill characteristics
-      tiers = this.determineTiers(fill);
+      tiers = this.determineTiers(sanitizedFill);
       console.log(`📋 Fill without signal mapping → determined tiers: ${tiers.join(', ')}`);
     }
 
@@ -99,7 +123,7 @@ class FillBroadcaster {
         }
 
         // Create tier-specific embed
-        const embed = this.createFillEmbed(fill, tier);
+        const embed = this.createFillEmbed(sanitizedFill, tier);
         
         // Send message
         const message = await channel.send({ embeds: [embed] });
@@ -204,25 +228,31 @@ class FillBroadcaster {
       .setColor(fill.status === 'Filled' ? actionColor : colors[tier])
       .setTimestamp(fill.filledAt || fill.timestamp || new Date());
 
-    // Order ID
+    // Order ID (always show if available)
     if (fill.orderId) {
       embed.addFields({ 
         name: 'Order ID', 
-        value: fill.orderId.toString(), 
+        value: String(fill.orderId), 
         inline: true 
       });
     }
 
-    // Symbol
+    // Symbol (required field)
     if (fill.symbol) {
       embed.addFields({ 
         name: 'Symbol', 
         value: fill.symbol, 
         inline: true 
       });
+    } else {
+      embed.addFields({ 
+        name: 'Symbol', 
+        value: 'Unknown', 
+        inline: true 
+      });
     }
 
-    // Action
+    // Action (required field)
     if (fill.action) {
       const actionEmoji = fill.action.includes('Buy') ? '🟢' : '🔴';
       embed.addFields({ 
@@ -230,12 +260,18 @@ class FillBroadcaster {
         value: `${actionEmoji} ${this.formatAction(fill.action)}`, 
         inline: true 
       });
+    } else {
+      embed.addFields({ 
+        name: 'Action', 
+        value: 'Unknown', 
+        inline: true 
+      });
     }
 
-    // Quantity (filled / total)
-    if (fill.filledQuantity || fill.quantity) {
-      const filled = fill.filledQuantity || fill.quantity;
-      const total = fill.totalQuantity || fill.quantity;
+    // Quantity (filled / total) - handle missing values
+    if (fill.filledQuantity !== undefined && fill.filledQuantity !== null) {
+      const filled = parseFloat(fill.filledQuantity) || 0;
+      const total = parseFloat(fill.totalQuantity || fill.filledQuantity) || filled;
       const quantityText = total > filled ? `${filled}/${total}` : filled.toString();
       
       embed.addFields({ 
@@ -245,14 +281,25 @@ class FillBroadcaster {
       });
     }
 
-    // Fill Price
-    if (fill.fillPrice || fill.price) {
-      const price = fill.fillPrice || fill.price;
-      embed.addFields({ 
-        name: 'Fill Price', 
-        value: `$${parseFloat(price).toFixed(2)}`, 
-        inline: true 
-      });
+    // Fill Price - handle missing/zero
+    if (fill.fillPrice !== undefined && fill.fillPrice !== null) {
+      const price = parseFloat(fill.fillPrice);
+      if (!isNaN(price) && price >= 0) {
+        embed.addFields({ 
+          name: 'Fill Price', 
+          value: `$${price.toFixed(2)}`, 
+          inline: true 
+        });
+      }
+    } else if (fill.price !== undefined && fill.price !== null) {
+      const price = parseFloat(fill.price);
+      if (!isNaN(price) && price >= 0) {
+        embed.addFields({ 
+          name: 'Price', 
+          value: `$${price.toFixed(2)}`, 
+          inline: true 
+        });
+      }
     }
 
     // Instrument Type
@@ -265,18 +312,21 @@ class FillBroadcaster {
     }
 
     // Option details if available
-    if (fill.strike) {
-      embed.addFields({ 
-        name: 'Strike', 
-        value: `$${fill.strike}`, 
-        inline: true 
-      });
+    if (fill.strike !== undefined && fill.strike !== null) {
+      const strike = parseFloat(fill.strike);
+      if (!isNaN(strike)) {
+        embed.addFields({ 
+          name: 'Strike', 
+          value: `$${strike}`, 
+          inline: true 
+        });
+      }
     }
 
     if (fill.expiration) {
       embed.addFields({ 
         name: 'Expiration', 
-        value: fill.expiration, 
+        value: String(fill.expiration), 
         inline: true 
       });
     }
@@ -284,14 +334,17 @@ class FillBroadcaster {
     if (fill.optionType) {
       embed.addFields({ 
         name: 'Option Type', 
-        value: fill.optionType, 
+        value: String(fill.optionType).toUpperCase(), 
         inline: true 
       });
     }
 
-    // Total value
-    if (fill.fillPrice && fill.filledQuantity) {
-      const totalValue = parseFloat(fill.fillPrice) * parseFloat(fill.filledQuantity);
+    // Total value - only if both price and quantity available
+    const fillPrice = parseFloat(fill.fillPrice || fill.price || 0);
+    const filledQty = parseFloat(fill.filledQuantity || 0);
+    
+    if (!isNaN(fillPrice) && !isNaN(filledQty) && fillPrice > 0 && filledQty > 0) {
+      const totalValue = fillPrice * filledQty;
       
       // For options, multiply by 100
       const multiplier = fill.instrumentType === 'Equity Option' ? 100 : 1;
@@ -321,20 +374,24 @@ class FillBroadcaster {
     }
 
     // Fees if available
-    if (fill.fees || fill.commission) {
-      const totalFees = (parseFloat(fill.fees || 0) + parseFloat(fill.commission || 0)).toFixed(2);
-      if (parseFloat(totalFees) > 0) {
-        embed.addFields({ 
-          name: 'Fees', 
-          value: `$${totalFees}`, 
-          inline: true 
-        });
-      }
+    const fees = parseFloat(fill.fees || 0);
+    const commission = parseFloat(fill.commission || 0);
+    const totalFees = fees + commission;
+    
+    if (!isNaN(totalFees) && totalFees > 0) {
+      embed.addFields({ 
+        name: 'Fees', 
+        value: `$${totalFees.toFixed(2)}`, 
+        inline: true 
+      });
     }
 
     // Account (last 4 digits only for privacy)
     if (fill.accountNumber) {
-      const maskedAccount = fill.accountNumber.slice(-4);
+      const accountStr = String(fill.accountNumber);
+      const maskedAccount = accountStr.length >= 4 
+        ? accountStr.slice(-4) 
+        : accountStr;
       embed.addFields({ 
         name: 'Account', 
         value: `****${maskedAccount}`, 
@@ -346,7 +403,7 @@ class FillBroadcaster {
     if (fill.executionVenue || fill.exchange) {
       embed.addFields({ 
         name: 'Venue', 
-        value: fill.executionVenue || fill.exchange, 
+        value: String(fill.executionVenue || fill.exchange), 
         inline: true 
       });
     }
@@ -435,6 +492,198 @@ class FillBroadcaster {
   clearHistory() {
     this.fillHistory = [];
     this.config.signalTierMap.clear();
+  }
+
+  /**
+   * Validate fill data
+   * @param {Object} fill - Fill data to validate
+   * @returns {Object} Validation result
+   */
+  validateFill(fill) {
+    const errors = [];
+    let critical = false;
+
+    // Check for null/undefined
+    if (!fill || typeof fill !== 'object') {
+      return {
+        isValid: false,
+        critical: true,
+        errors: ['Fill data is null, undefined, or not an object']
+      };
+    }
+
+    // Critical fields
+    if (!fill.symbol || fill.symbol === '') {
+      errors.push('Missing symbol');
+      critical = true;
+    }
+
+    if (!fill.action || fill.action === '') {
+      errors.push('Missing action');
+      critical = true;
+    }
+
+    // Important but not critical fields
+    if (!fill.filledQuantity && fill.filledQuantity !== 0) {
+      errors.push('Missing filledQuantity');
+    }
+
+    if (!fill.fillPrice && fill.fillPrice !== 0) {
+      errors.push('Missing fillPrice');
+    }
+
+    // Type validation
+    if (fill.filledQuantity !== undefined && fill.filledQuantity !== null) {
+      const qty = parseFloat(fill.filledQuantity);
+      if (isNaN(qty)) {
+        errors.push('filledQuantity is not a valid number');
+      } else if (qty < 0) {
+        errors.push('filledQuantity is negative');
+      }
+    }
+
+    if (fill.fillPrice !== undefined && fill.fillPrice !== null) {
+      const price = parseFloat(fill.fillPrice);
+      if (isNaN(price)) {
+        errors.push('fillPrice is not a valid number');
+      } else if (price < 0) {
+        errors.push('fillPrice is negative');
+      }
+    }
+
+    // Date validation
+    if (fill.filledAt) {
+      const date = new Date(fill.filledAt);
+      if (isNaN(date.getTime())) {
+        errors.push('filledAt is not a valid date');
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      critical,
+      errors
+    };
+  }
+
+  /**
+   * Sanitize fill data - fix malformed data where possible
+   * @param {Object} fill - Fill data to sanitize
+   * @returns {Object} Sanitized fill data
+   */
+  sanitizeFill(fill) {
+    const sanitized = { ...fill };
+
+    // Ensure symbol is uppercase string
+    if (sanitized.symbol) {
+      sanitized.symbol = String(sanitized.symbol).toUpperCase().trim();
+    }
+
+    // Normalize action
+    if (sanitized.action) {
+      sanitized.action = this.normalizeAction(String(sanitized.action));
+    }
+
+    // Parse numbers safely
+    if (sanitized.filledQuantity !== undefined && sanitized.filledQuantity !== null) {
+      const qty = parseFloat(sanitized.filledQuantity);
+      sanitized.filledQuantity = isNaN(qty) ? 0 : Math.abs(qty);
+    }
+
+    if (sanitized.totalQuantity !== undefined && sanitized.totalQuantity !== null) {
+      const qty = parseFloat(sanitized.totalQuantity);
+      sanitized.totalQuantity = isNaN(qty) ? sanitized.filledQuantity : Math.abs(qty);
+    }
+
+    if (sanitized.fillPrice !== undefined && sanitized.fillPrice !== null) {
+      const price = parseFloat(sanitized.fillPrice);
+      sanitized.fillPrice = isNaN(price) ? 0 : Math.abs(price);
+    }
+
+    if (sanitized.price !== undefined && sanitized.price !== null) {
+      const price = parseFloat(sanitized.price);
+      sanitized.price = isNaN(price) ? 0 : Math.abs(price);
+    }
+
+    // Parse fees/commission
+    if (sanitized.fees !== undefined && sanitized.fees !== null) {
+      const fees = parseFloat(sanitized.fees);
+      sanitized.fees = isNaN(fees) ? 0 : fees;
+    }
+
+    if (sanitized.commission !== undefined && sanitized.commission !== null) {
+      const commission = parseFloat(sanitized.commission);
+      sanitized.commission = isNaN(commission) ? 0 : commission;
+    }
+
+    // Parse strike
+    if (sanitized.strike !== undefined && sanitized.strike !== null) {
+      const strike = parseFloat(sanitized.strike);
+      sanitized.strike = isNaN(strike) ? null : strike;
+    }
+
+    // Ensure dates are Date objects
+    if (sanitized.filledAt) {
+      const date = new Date(sanitized.filledAt);
+      sanitized.filledAt = isNaN(date.getTime()) ? new Date() : date;
+    } else {
+      sanitized.filledAt = new Date();
+    }
+
+    if (sanitized.timestamp && !(sanitized.timestamp instanceof Date)) {
+      const date = new Date(sanitized.timestamp);
+      sanitized.timestamp = isNaN(date.getTime()) ? new Date() : date;
+    }
+
+    // Default status if missing
+    if (!sanitized.status) {
+      sanitized.status = 'Filled';
+    }
+
+    // Default instrument type if missing
+    if (!sanitized.instrumentType) {
+      // Guess based on presence of option fields
+      sanitized.instrumentType = (sanitized.strike || sanitized.optionType) 
+        ? 'Equity Option' 
+        : 'Equity';
+    }
+
+    // Ensure orderId exists
+    if (!sanitized.orderId) {
+      sanitized.orderId = `fill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    // Sanitize orderId to string
+    sanitized.orderId = String(sanitized.orderId);
+
+    return sanitized;
+  }
+
+  /**
+   * Normalize action strings
+   * @param {string} action - Action to normalize
+   * @returns {string} Normalized action
+   */
+  normalizeAction(action) {
+    const upper = action.toUpperCase().trim();
+    
+    // Map common variations
+    const actionMap = {
+      'BUY': 'Buy to Open',
+      'BTO': 'Buy to Open',
+      'BUY TO OPEN': 'Buy to Open',
+      'SELL': 'Sell to Open',
+      'STO': 'Sell to Open',
+      'SELL TO OPEN': 'Sell to Open',
+      'BTC': 'Buy to Close',
+      'BUY TO CLOSE': 'Buy to Close',
+      'STC': 'Sell to Close',
+      'SELL TO CLOSE': 'Sell to Close',
+      'BOUGHT': 'Buy to Open',
+      'SOLD': 'Sell to Open'
+    };
+    
+    return actionMap[upper] || action;
   }
 }
 
