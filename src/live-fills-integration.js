@@ -9,9 +9,14 @@
 
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
+const WebSocket = require('ws');
+
+// Required for Node.js environment (needed for account streamer)
+global.WebSocket = WebSocket;
+global.window = { WebSocket, setTimeout, clearTimeout };
 
 // Import your existing components
-const TastytradeExecutor = require('./TastytradeExecutor');
+const TastytradeIntegration = require('./tastytrade-client');
 const FillBroadcaster = require('./fill-broadcaster');
 
 // Discord client
@@ -201,16 +206,16 @@ async function connectStreamer() {
   try {
     console.log('🔌 Connecting to Tastytrade...');
     
-    // Initialize Tastytrade executor
-    tastytrade = new TastytradeExecutor({
-      username: process.env.TASTYTRADE_USERNAME,
-      password: process.env.TASTYTRADE_PASSWORD,
-      accountNumber: process.env.TASTYTRADE_ACCOUNT_NUMBER
-    });
+    // Initialize Tastytrade integration (handles OAuth properly)
+    tastytrade = new TastytradeIntegration();
     
-    // Connect
-    await tastytrade.connect();
+    // Authenticate first - this establishes the session
+    await tastytrade.authenticate();
     console.log('✅ Connected to Tastytrade API');
+    
+    // Get accounts to verify connection
+    const accounts = await tastytrade.getAccounts();
+    console.log(`✅ Found ${accounts.length} account(s)`);
     
     // Get account streamer
     if (tastytrade.client && tastytrade.client.accountStreamer) {
