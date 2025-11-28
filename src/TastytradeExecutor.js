@@ -113,19 +113,51 @@ class TastytradeExecutor {
       // Use EXT by default to allow trading outside regular hours
       const timeInForce = signal.timeInForce || this.getTimeInForce();
       
-      // Build order for equity
-      // For simple equity orders, we don't need 'underlying-symbol' or 'legs' structure
-      const orderData = {
-        'time-in-force': timeInForce,
-        'order-type': signal.orderType || 'Market',
-        'size': quantity,
-        'legs': [{
-          'instrument-type': 'Equity',
-          'symbol': signal.symbol,
-          'quantity': quantity,
-          'action': signal.action
-        }]
-      };
+      // Build order - check if this is an options trade
+      const isOptions = signal.instrumentType === 'Equity Option' || 
+                        (signal.strike && signal.expiration && signal.optionType);
+      
+      let orderData;
+      
+      if (isOptions) {
+        // Build option symbol in OCC format: SYMBOL + YYMMDD + P/C + Strike*1000
+        // Example: SPY251128P00664000
+        const expDate = this.formatExpirationDate(signal.expiration);
+        const optionChar = signal.optionType?.toUpperCase().startsWith('P') ? 'P' : 'C';
+        const strikeFormatted = String(Math.round(signal.strike * 1000)).padStart(8, '0');
+        const optionSymbol = `${signal.symbol.padEnd(6)}${expDate}${optionChar}${strikeFormatted}`;
+        
+        console.log(`🎯 Options order: ${optionSymbol}`);
+        
+        orderData = {
+          'time-in-force': timeInForce,
+          'order-type': signal.orderType || 'Market',
+          'price-effect': signal.action.includes('Buy') ? 'Debit' : 'Credit',
+          'legs': [{
+            'instrument-type': 'Equity Option',
+            'symbol': optionSymbol,
+            'quantity': quantity,
+            'action': signal.action
+          }]
+        };
+        
+        // Add price for limit orders
+        if (signal.price && signal.orderType === 'Limit') {
+          orderData.price = signal.price.toFixed(2);
+        }
+      } else {
+        // Build equity order
+        orderData = {
+          'time-in-force': timeInForce,
+          'order-type': signal.orderType || 'Market',
+          'legs': [{
+            'instrument-type': 'Equity',
+            'symbol': signal.symbol,
+            'quantity': quantity,
+            'action': signal.action
+          }]
+        };
+      }
       
       // Log order data for debugging
       console.log(`📦 Order data:`, JSON.stringify(orderData, null, 2));

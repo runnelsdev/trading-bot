@@ -9,14 +9,9 @@
 
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
-const WebSocket = require('ws');
-
-// Required for Node.js environment (needed for account streamer)
-global.WebSocket = WebSocket;
-global.window = { WebSocket, setTimeout, clearTimeout };
 
 // Import your existing components
-const TastytradeIntegration = require('./tastytrade-client');
+const TastytradeExecutor = require('./TastytradeExecutor');
 const FillBroadcaster = require('./fill-broadcaster');
 
 // Discord client
@@ -40,93 +35,35 @@ function extractFillFromStreamerMessage(message) {
   try {
     // Handle different message formats from Tastytrade streamer
     
-    // Format 1: Order message (type: "Order") - this is the actual Tastytrade format
-    // Structure: { type: "Order", data: { id, status, underlying-symbol, ... } }
-    if (message.type === 'Order' && message.data) {
-      const order = message.data;
-      
-      // Only process filled orders
-      if (!['Filled', 'Partially Filled', 'PartFill'].includes(order.status)) {
-        console.log(`   ↳ Order status: ${order.status} (not a fill, skipping)`);
-        return null;
-      }
-      
-      console.log(`   ↳ 🎯 FILL DETECTED! Status: ${order.status}`);
-      
-      // Extract action from legs if available
-      let action = null;
-      if (order.legs && order.legs.length > 0) {
-        action = order.legs[0].action || order.legs[0]['order-action'];
-      }
-      
-      // Parse symbol for options (format: "SPY   251128P00664000")
-      let strike = null;
-      let optionType = null;
-      let expiration = null;
-      const symbol = order.legs?.[0]?.symbol || order['underlying-symbol'];
-      
-      if (symbol && symbol.length > 10) {
-        // OCC option symbol format: SYMBOL + YYMMDD + P/C + Strike
-        const match = symbol.match(/(\w+)\s*(\d{6})([PC])(\d+)/);
-        if (match) {
-          const [, , dateStr, pc, strikeStr] = match;
-          optionType = pc === 'C' ? 'CALL' : 'PUT';
-          strike = parseInt(strikeStr) / 1000; // Strike is in thousandths
-          // Parse date YYMMDD
-          const year = '20' + dateStr.slice(0, 2);
-          const month = dateStr.slice(2, 4);
-          const day = dateStr.slice(4, 6);
-          expiration = `${year}-${month}-${day}`;
-        }
-      }
-      
-      return {
-        orderId: order.id || order['order-id'] || `live-${Date.now()}`,
-        symbol: order['underlying-symbol'] || symbol?.split(/\s/)[0] || 'UNKNOWN',
-        action: normalizeAction(action),
-        status: order.status,
-        filledQuantity: order['filled-quantity'] || order.size || 1,
-        totalQuantity: order.size || order.quantity || 1,
-        fillPrice: parseFloat(order['average-fill-price'] || order.price || 0),
-        instrumentType: order['underlying-instrument-type'] === 'Equity' ? 'Equity Option' : (order['underlying-instrument-type'] || 'Equity Option'),
-        strike: strike,
-        expiration: expiration,
-        optionType: optionType,
-        filledAt: order['filled-at'] || order['updated-at'] || new Date().toISOString(),
-        accountNumber: order['account-number'] || process.env.TASTYTRADE_ACCOUNT_NUMBER,
-        fees: parseFloat(order['total-fees'] || 0) + parseFloat(order['total-commissions'] || 0),
-        legs: order.legs || []
-      };
-    }
-    
-    // Format 2: Legacy order format with nested order object
+    // Format 1: Order update with status
     if (message.data?.order || message.order) {
       const order = message.data?.order || message.order;
       
-      if (!['Filled', 'Partially Filled', 'PartiallyFilled', 'PartFill'].includes(order.status)) {
+      // Only process filled orders
+      if (!['Filled', 'Partially Filled', 'PartiallyFilled'].includes(order.status)) {
         return null;
       }
       
       return {
         orderId: order.id || order['order-id'] || `live-${Date.now()}`,
-        symbol: order['underlying-symbol'] || order.symbol,
+        symbol: order['underlying-symbol'] || order.symbol || order['underlying-symbol'],
         action: normalizeAction(order.action || order['order-action'] || extractActionFromLegs(order.legs)),
         status: order.status,
         filledQuantity: order['filled-quantity'] || order.filledQuantity || order.size || 0,
         totalQuantity: order.size || order.quantity || order['order-quantity'] || 0,
-        fillPrice: parseFloat(order['average-fill-price'] || order.price || order['fill-price'] || 0),
+        fillPrice: order['average-fill-price'] || order.price || order['fill-price'] || 0,
         instrumentType: order['instrument-type'] || order.instrumentType || guessInstrumentType(order),
         strike: order.strike || order['strike-price'] || extractFromLegs(order.legs, 'strike'),
         expiration: order.expiration || order['expiration-date'] || extractFromLegs(order.legs, 'expiration'),
         optionType: order['option-type'] || order.optionType || extractFromLegs(order.legs, 'optionType'),
         filledAt: order['filled-at'] || order.filledAt || new Date().toISOString(),
         accountNumber: order['account-number'] || order.accountNumber || process.env.TASTYTRADE_ACCOUNT_NUMBER,
-        fees: (parseFloat(order.fees) || 0) + (parseFloat(order.commission) || 0),
+        fees: (order.fees || 0) + (order.commission || 0),
         legs: order.legs || []
       };
     }
     
-    // Format 3: Fill event
+    // Format 2: Fill event
     if (message.type === 'Fill' || message.data?.type === 'Fill') {
       const fill = message.data || message;
       return {
@@ -136,14 +73,14 @@ function extractFillFromStreamerMessage(message) {
         status: 'Filled',
         filledQuantity: fill.quantity || fill['filled-quantity'] || 1,
         totalQuantity: fill.quantity || fill['filled-quantity'] || 1,
-        fillPrice: parseFloat(fill.price || fill['fill-price'] || 0),
+        fillPrice: fill.price || fill['fill-price'] || 0,
         instrumentType: fill['instrument-type'] || 'Unknown',
         filledAt: fill.timestamp || fill['executed-at'] || new Date().toISOString(),
         accountNumber: fill['account-number'] || process.env.TASTYTRADE_ACCOUNT_NUMBER
       };
     }
     
-    // Format 4: Trade execution
+    // Format 3: Trade execution
     if (message.type === 'Trade' || message.data?.type === 'Trade') {
       const trade = message.data || message;
       return {
@@ -152,7 +89,7 @@ function extractFillFromStreamerMessage(message) {
         action: normalizeAction(trade.side || trade.action),
         status: 'Filled',
         filledQuantity: trade.quantity || trade.size,
-        fillPrice: parseFloat(trade.price || 0),
+        fillPrice: trade.price,
         instrumentType: trade.type || 'Equity',
         filledAt: trade.timestamp || new Date().toISOString()
       };
@@ -264,16 +201,16 @@ async function connectStreamer() {
   try {
     console.log('🔌 Connecting to Tastytrade...');
     
-    // Initialize Tastytrade integration (handles OAuth properly)
-    tastytrade = new TastytradeIntegration();
+    // Initialize Tastytrade executor
+    tastytrade = new TastytradeExecutor({
+      username: process.env.TASTYTRADE_USERNAME,
+      password: process.env.TASTYTRADE_PASSWORD,
+      accountNumber: process.env.TASTYTRADE_ACCOUNT_NUMBER
+    });
     
-    // Authenticate first - this establishes the session
-    await tastytrade.authenticate();
+    // Connect
+    await tastytrade.connect();
     console.log('✅ Connected to Tastytrade API');
-    
-    // Get accounts to verify connection
-    const accounts = await tastytrade.getAccounts();
-    console.log(`✅ Found ${accounts.length} account(s)`);
     
     // Get account streamer
     if (tastytrade.client && tastytrade.client.accountStreamer) {
