@@ -201,11 +201,11 @@ async function connectStreamer() {
   try {
     console.log('🔌 Connecting to Tastytrade...');
     
-    // Initialize Tastytrade executor
+    // Initialize Tastytrade executor with OAuth for streamer support
     tastytrade = new TastytradeExecutor({
-      username: process.env.TASTYTRADE_USERNAME,
-      password: process.env.TASTYTRADE_PASSWORD,
-      accountNumber: process.env.TASTYTRADE_ACCOUNT_NUMBER
+      tastytradeAccountNumber: process.env.TASTYTRADE_ACCOUNT_NUMBER,
+      tastytradeClientSecret: process.env.TASTYTRADE_CLIENT_SECRET,
+      tastytradeRefreshToken: process.env.TASTYTRADE_REFRESH_TOKEN
     });
     
     // Connect

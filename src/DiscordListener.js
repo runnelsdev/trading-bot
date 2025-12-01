@@ -3,6 +3,12 @@ const { Client, GatewayIntentBits } = require('discord.js');
 /**
  * Discord Listener
  * Listens to Discord channel for trading signals
+ * 
+ * Enhanced features:
+ * - Duplicate signal detection
+ * - Symbol filtering
+ * - Max quantity cap
+ * - Message reactions on trade execution
  */
 class DiscordListener {
   constructor(config, executor) {
@@ -19,6 +25,22 @@ class DiscordListener {
     
     this.isRunning = false;
     this.channel = null;
+    
+    // Duplicate detection - track processed signals
+    this.processedSignals = new Set();
+    
+    // Parse symbol filter from env (comma-separated list)
+    this.enabledSymbols = process.env.ENABLED_SYMBOLS
+      ? process.env.ENABLED_SYMBOLS.split(',').map(s => s.trim().toUpperCase())
+      : null; // null = all symbols allowed
+    
+    // Max quantity cap (safety limit)
+    this.maxQuantity = parseInt(process.env.MAX_QUANTITY) || 100;
+    
+    if (this.enabledSymbols) {
+      console.log(`🎯 Symbol filter enabled: ${this.enabledSymbols.join(', ')}`);
+    }
+    console.log(`📊 Max quantity cap: ${this.maxQuantity}`);
   }
 
   /**
@@ -138,8 +160,7 @@ class DiscordListener {
     if (message.embeds.length > 0) {
       const signal = this.parseSignalFromEmbed(message.embeds[0]);
       if (signal) {
-        console.log(`🎯 Signal detected: ${signal.action} ${signal.quantity} ${signal.symbol}`);
-        await this.executor.executeTrade(signal);
+        await this.processSignal(signal, message);
       }
       return;
     }
@@ -147,8 +168,66 @@ class DiscordListener {
     // Check for signal in message content (alternative format)
     const signal = this.parseSignalFromText(message.content);
     if (signal) {
-      console.log(`🎯 Signal detected: ${signal.action} ${signal.quantity} ${signal.symbol}`);
-      await this.executor.executeTrade(signal);
+      await this.processSignal(signal, message);
+    }
+  }
+
+  /**
+   * Process a detected signal with all filters and safety checks
+   */
+  async processSignal(signal, message) {
+    // Generate unique key for duplicate detection
+    const signalKey = `${signal.symbol}_${signal.action}_${signal.id}`;
+    
+    // Check for duplicate
+    if (this.processedSignals.has(signalKey)) {
+      console.log(`⏭️  Skipping duplicate signal: ${signalKey}`);
+      return;
+    }
+    
+    // Check symbol filter
+    if (this.enabledSymbols && !this.enabledSymbols.includes(signal.symbol)) {
+      console.log(`⏭️  Symbol ${signal.symbol} not in enabled list, skipping`);
+      return;
+    }
+    
+    // Apply max quantity cap
+    const originalQuantity = signal.quantity;
+    signal.quantity = Math.min(signal.quantity, this.maxQuantity);
+    if (signal.quantity !== originalQuantity) {
+      console.log(`📊 Quantity capped: ${originalQuantity} → ${signal.quantity} (max: ${this.maxQuantity})`);
+    }
+    
+    console.log(`🎯 Signal detected: ${signal.action} ${signal.quantity} ${signal.symbol}`);
+    
+    // Execute the trade
+    const result = await this.executor.executeTrade(signal);
+    
+    if (result.success) {
+      // Mark as processed
+      this.processedSignals.add(signalKey);
+      
+      // Clean up old processed signals (keep last 500)
+      if (this.processedSignals.size > 500) {
+        const iterator = this.processedSignals.values();
+        this.processedSignals.delete(iterator.next().value);
+      }
+      
+      // React to message to show we processed it
+      try {
+        await message.react('✅');
+      } catch (e) {
+        // Ignore reaction errors (may not have permission)
+      }
+      
+      console.log(`✅ Signal processed and marked: ${signalKey}`);
+    } else {
+      // React with warning if trade failed
+      try {
+        await message.react('⚠️');
+      } catch (e) {
+        // Ignore reaction errors
+      }
     }
   }
 
@@ -261,6 +340,18 @@ class DiscordListener {
       await this.client.destroy();
       this.isRunning = false;
     }
+  }
+
+  /**
+   * Get listener stats
+   */
+  getStats() {
+    return {
+      isRunning: this.isRunning,
+      processedSignalsCount: this.processedSignals.size,
+      enabledSymbols: this.enabledSymbols,
+      maxQuantity: this.maxQuantity
+    };
   }
 }
 

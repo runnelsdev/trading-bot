@@ -34,6 +34,7 @@ class TastytradeExecutor {
     // Use OAuth if available, otherwise session
     if (this.config.tastytradeClientSecret && this.config.tastytradeRefreshToken) {
       // OAuth authentication
+      console.log('   Using OAuth authentication...');
       this.client = new TastytradeClient({
         ...(process.env.TASTYTRADE_ENV === 'production' 
           ? TastytradeClient.ProdConfig 
@@ -42,15 +43,26 @@ class TastytradeExecutor {
         refreshToken: this.config.tastytradeRefreshToken,
         oauthScopes: ['read', 'trade', 'openid']
       });
+      
+      // Make a request to trigger OAuth token refresh before using streamer
+      try {
+        await this.client.accountsAndCustomersService.getCustomerAccounts();
+        console.log('   OAuth token validated');
+      } catch (e) {
+        console.error('   OAuth token validation failed:', e.message);
+        throw e;
+      }
+      
+      console.log('✅ Tastytrade connected (OAuth)');
     } else {
       // Session-based authentication
+      console.log('   Using session authentication...');
       await this.client.sessionService.login(
         this.config.tastytradeUsername,
         this.config.tastytradePassword
       );
+      console.log('✅ Tastytrade connected (Session)');
     }
-    
-    console.log('✅ Tastytrade connected');
   }
 
   /**

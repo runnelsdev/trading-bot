@@ -7,6 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
     "subscriber": "node src/subscriber-bot.js",
+    "fill-follower": "node src/fill-follower-bot.js",
     "test-discord": "node src/test-discord-connection.js",
     "test-discord-bot": "node src/test-discord-bot.js",
     "update-sidecar": "node src/update-sidecar.js",
