@@ -55,6 +55,20 @@ async function main() {
       console.log(`📊 Position sizing: ${botConfig.sizingMethod}`);
       console.log(`🛡️  Daily limits: ${botConfig.maxDailyTrades} trades, $${botConfig.maxDailyLoss} loss`);
       
+      // Start web server for management/reset even when running
+      const app = express();
+      app.use(express.json());
+      app.use(express.static(path.join(__dirname, '../public')));
+      
+      // Setup endpoints (for reset functionality)
+      require('../config/setup-server')(app, configManager);
+      
+      const port = process.env.PORT || 3000;
+      app.listen(port, '0.0.0.0', () => {
+        console.log(`\n🌐 Management UI available at: http://localhost:${port}`);
+        console.log('   Visit to view status or reset configuration\n');
+      });
+      
       // Keep process alive
       process.on('SIGINT', async () => {
         console.log('\n🛑 Shutting down...');

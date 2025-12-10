@@ -12,6 +12,11 @@ module.exports = (app, configManager) => {
     res.sendFile('setup.html', { root: path.join(__dirname, '../public') });
   });
 
+  // Serve setup page (even when configured, for reconfiguration)
+  app.get('/setup', (req, res) => {
+    res.sendFile('setup.html', { root: path.join(__dirname, '../public') });
+  });
+
   // Health check
   app.get('/health', (req, res) => {
     res.json({ status: 'ok', mode: 'setup' });
@@ -230,6 +235,36 @@ module.exports = (app, configManager) => {
       configured: configManager.isConfigured(),
       config: publicConfig
     });
+  });
+
+  // Reset configuration (delete config file to start fresh)
+  app.post('/api/reset-config', async (req, res) => {
+    try {
+      const fs = require('fs');
+      const configPath = path.join(__dirname, 'bot-config.json');
+      
+      if (fs.existsSync(configPath)) {
+        fs.unlinkSync(configPath);
+        console.log('🔄 Configuration reset - bot-config.json deleted');
+      }
+      
+      res.json({
+        success: true,
+        message: 'Configuration reset. Restarting to setup mode...'
+      });
+      
+      // Restart the process (PM2 will handle it, bringing it back to setup mode)
+      setTimeout(() => {
+        process.exit(0);
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Reset config error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
   });
 
   /**

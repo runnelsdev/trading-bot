@@ -78,6 +78,11 @@ class TradingBroadcaster {
     try {
       this.accountStreamer = this.tastytrade.client.accountStreamer;
       
+      if (!this.accountStreamer) {
+        console.log('⚠️  Account streamer not available on client');
+        return;
+      }
+      
       // Add message observer
       this.accountStreamer.addMessageObserver((message) => {
         this.handleStreamerMessage(message);
@@ -93,6 +98,15 @@ class TradingBroadcaster {
       console.log('✅ Account streamer connected');
     } catch (error) {
       console.error('❌ Failed to connect account streamer:', error.message);
+      // Stop the streamer if it started to prevent heartbeat errors
+      if (this.accountStreamer) {
+        try {
+          await this.accountStreamer.stop();
+        } catch (stopError) {
+          // Ignore stop errors
+        }
+        this.accountStreamer = null;
+      }
       // Continue without streamer - can still use queue
     }
   }

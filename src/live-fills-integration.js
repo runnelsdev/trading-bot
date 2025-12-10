@@ -35,7 +35,48 @@ function extractFillFromStreamerMessage(message) {
   try {
     // Handle different message formats from Tastytrade streamer
     
-    // Format 1: Order update with status
+    // Format 1: Direct Order type message (most common from streamer)
+    // Message format: { type: "Order", data: { id, status, ... } }
+    if (message.type === 'Order' && message.data) {
+      const order = message.data;
+      
+      // Only process filled orders
+      if (!['Filled', 'Partially Filled', 'PartiallyFilled'].includes(order.status)) {
+        console.log(`   📋 Order status: ${order.status} (waiting for Filled)`);
+        return null;
+      }
+      
+      console.log('🔔 FILLED ORDER DETECTED!', order.status);
+      
+      // Extract action from legs if present
+      const legs = order.legs || [];
+      const action = normalizeAction(
+        order.action || 
+        order['order-action'] || 
+        (legs[0]?.action) || 
+        (legs[0]?.['order-action'])
+      );
+      
+      return {
+        orderId: order.id || order['order-id'] || `live-${Date.now()}`,
+        symbol: order['underlying-symbol'] || order.symbol,
+        action: action,
+        status: order.status,
+        filledQuantity: order['filled-quantity'] || order.filledQuantity || order.size || 0,
+        totalQuantity: order.size || order.quantity || order['order-quantity'] || 0,
+        fillPrice: order['average-fill-price'] || order.price || order['fill-price'] || 0,
+        instrumentType: order['underlying-instrument-type'] || order['instrument-type'] || guessInstrumentType(order),
+        strike: extractFromLegs(legs, 'strike'),
+        expiration: extractFromLegs(legs, 'expiration'),
+        optionType: extractFromLegs(legs, 'optionType'),
+        filledAt: order['filled-at'] || order.filledAt || new Date().toISOString(),
+        accountNumber: order['account-number'] || order.accountNumber || process.env.TASTYTRADE_ACCOUNT_NUMBER,
+        fees: (parseFloat(order['total-fees']) || 0) + (parseFloat(order['total-commissions']) || 0),
+        legs: legs
+      };
+    }
+    
+    // Format 2: Order nested in data.order (legacy format)
     if (message.data?.order || message.order) {
       const order = message.data?.order || message.order;
       
@@ -196,48 +237,101 @@ async function handleStreamerMessage(message) {
 
 /**
  * Connect to Tastytrade account streamer
+ * Following official documentation pattern
  */
 async function connectStreamer() {
   try {
     console.log('🔌 Connecting to Tastytrade...');
     
-    // Initialize Tastytrade executor with OAuth for streamer support
-    tastytrade = new TastytradeExecutor({
-      tastytradeAccountNumber: process.env.TASTYTRADE_ACCOUNT_NUMBER,
-      tastytradeClientSecret: process.env.TASTYTRADE_CLIENT_SECRET,
-      tastytradeRefreshToken: process.env.TASTYTRADE_REFRESH_TOKEN
+    const TastytradeClient = require('@tastytrade/api').default;
+    
+    // Determine environment and URLs
+    const isProduction = process.env.TASTYTRADE_ENV === 'production';
+    const baseUrl = isProduction 
+      ? 'https://api.tastyworks.com' 
+      : 'https://api.cert.tastyworks.com';
+    const accountStreamerUrl = isProduction
+      ? 'wss://streamer.tastyworks.com'
+      : 'wss://streamer.cert.tastyworks.com';
+    
+    console.log(`   Environment: ${isProduction ? 'PRODUCTION' : 'SANDBOX'}`);
+    console.log(`   Base URL: ${baseUrl}`);
+    console.log(`   Streamer URL: ${accountStreamerUrl}`);
+    
+    // Initialize client with explicit URLs (per documentation)
+    const client = new TastytradeClient({
+      baseUrl: baseUrl,
+      accountStreamerUrl: accountStreamerUrl,
+      clientSecret: process.env.TASTYTRADE_CLIENT_SECRET,
+      refreshToken: process.env.TASTYTRADE_REFRESH_TOKEN,
+      oauthScopes: ['read', 'trade']
     });
     
-    // Connect
-    await tastytrade.connect();
-    console.log('✅ Connected to Tastytrade API');
+    // Store client reference
+    tastytrade = { client };
     
-    // Get account streamer
-    if (tastytrade.client && tastytrade.client.accountStreamer) {
-      accountStreamer = tastytrade.client.accountStreamer;
-      
-      // Add message observer
-      accountStreamer.addMessageObserver((message) => {
-        handleStreamerMessage(message);
-      });
-      
-      // Start streamer
-      await accountStreamer.start();
-      console.log('✅ Account streamer started');
-      
-      // Subscribe to account
-      const accountNumber = process.env.TASTYTRADE_ACCOUNT_NUMBER;
-      await accountStreamer.subscribeToAccounts([accountNumber]);
-      console.log(`✅ Subscribed to account: ${accountNumber}`);
-      
-      return true;
-    } else {
-      console.warn('⚠️  Account streamer not available on client');
-      console.log('   This may be a sandbox limitation');
+    // Get accounts from API (per documentation)
+    console.log('   Fetching accounts...');
+    const accountsResponse = await client.accountsAndCustomersService.getCustomerAccounts();
+    const accounts = accountsResponse.data?.items || accountsResponse || [];
+    
+    console.log(`   Found ${accounts.length} accounts`);
+    
+    // Extract account numbers (per documentation: acc.account['account-number'])
+    let accountNumbers = [];
+    for (const acc of accounts) {
+      const accNum = acc['account-number'] || acc.account?.['account-number'] || acc.accountNumber;
+      if (accNum) {
+        accountNumbers.push(accNum);
+        console.log(`   - Account: ${accNum}`);
+      }
+    }
+    
+    // Fallback to env if no accounts found
+    if (accountNumbers.length === 0 && process.env.TASTYTRADE_ACCOUNT_NUMBER) {
+      console.log(`   Using account from env: ${process.env.TASTYTRADE_ACCOUNT_NUMBER}`);
+      accountNumbers = [process.env.TASTYTRADE_ACCOUNT_NUMBER];
+    }
+    
+    if (accountNumbers.length === 0) {
+      console.error('❌ No accounts found for this OAuth token');
       return false;
     }
+    
+    // Get account streamer
+    accountStreamer = client.accountStreamer;
+    
+    if (!accountStreamer) {
+      console.warn('⚠️  Account streamer not available on client');
+      return false;
+    }
+    
+    // Add state observer (per documentation - for debugging)
+    accountStreamer.addStreamerStateObserver((state) => {
+      console.log(`📡 Streamer state: ${state}`);
+    });
+    
+    // Add message observer BEFORE starting (per documentation)
+    accountStreamer.addMessageObserver((message) => {
+      handleStreamerMessage(message);
+    });
+    
+    // Start streamer
+    await accountStreamer.start();
+    console.log('✅ Account streamer started');
+    
+    // Subscribe to accounts
+    await accountStreamer.subscribeToAccounts(accountNumbers);
+    console.log(`✅ Subscribed to accounts: ${accountNumbers.join(', ')}`);
+    
+    return true;
+    
   } catch (error) {
     console.error('❌ Failed to connect streamer:', error.message);
+    if (error.response) {
+      console.error('   Status:', error.response.status);
+      console.error('   Data:', JSON.stringify(error.response.data, null, 2));
+    }
     return false;
   }
 }

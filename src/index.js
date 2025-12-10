@@ -2,6 +2,17 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
 const TradingBroadcaster = require('./trading-broadcaster');
 
+// Handle uncaught exceptions to prevent crashes from library issues
+process.on('uncaughtException', (error) => {
+  console.error('⚠️  Uncaught exception (non-fatal):', error.message);
+  // Don't crash - just log and continue
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️  Unhandled rejection (non-fatal):', reason);
+  // Don't crash - just log and continue
+});
+
 // Initialize Discord client
 const discordClient = new Client({
   intents: [
@@ -141,7 +152,7 @@ discordClient.on('messageCreate', async (message) => {
 });
 
 // Login to Discord
-discordClient.login(process.env.DISCORD_TOKEN);
+discordClient.login(process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN);
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
