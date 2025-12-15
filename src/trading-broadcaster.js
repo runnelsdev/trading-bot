@@ -128,15 +128,22 @@ class TradingBroadcaster {
    */
   handleStreamerMessage(message) {
     try {
+      // DEBUG: Log all incoming messages
+      console.log('\n📨 Account Streamer Message Received:');
+      console.log(JSON.stringify(message, null, 2));
+      
       // Parse message to extract fill information
       const fillData = this.extractFillData(message);
       
       if (fillData) {
+        console.log('✅ Fill data extracted:', fillData);
         // Track latency
         this.latencyMonitor.trackSignal(fillData, 'manual');
         
         // Broadcast to Discord
         this.broadcastToDiscord(fillData);
+      } else {
+        console.log('ℹ️  Message was not a fill notification');
       }
     } catch (error) {
       console.error('Error handling streamer message:', error);
@@ -148,7 +155,9 @@ class TradingBroadcaster {
    */
   extractFillData(message) {
     // Parse Tastytrade streamer message format
-    // This will need to be adjusted based on actual message format
+    // Handle multiple possible message structures
+    
+    // Structure 1: message.data.order
     if (message.data && message.data.order) {
       const order = message.data.order;
       
@@ -159,12 +168,62 @@ class TradingBroadcaster {
           timestamp: new Date().toISOString(),
           orderId: order.id || order['order-id'],
           symbol: order['underlying-symbol'] || order.symbol,
-          quantity: order.size,
-          price: order.price,
+          quantity: order.size || order.quantity || order['filled-quantity'],
+          price: order.price || order['avg-fill-price'],
           status: order.status,
           legs: order.legs || []
         };
       }
+    }
+    
+    // Structure 2: Direct order object
+    if (message.order) {
+      const order = message.order;
+      if (order.status === 'Filled' || order.status === 'Partially Filled') {
+        return {
+          type: 'fill',
+          timestamp: new Date().toISOString(),
+          orderId: order.id || order['order-id'],
+          symbol: order['underlying-symbol'] || order.symbol,
+          quantity: order.size || order.quantity || order['filled-quantity'],
+          price: order.price || order['avg-fill-price'],
+          status: order.status,
+          legs: order.legs || []
+        };
+      }
+    }
+    
+    // Structure 3: Message type-based (common in websocket APIs)
+    if (message.type === 'Order' || message.type === 'order') {
+      const order = message.data || message;
+      const status = order.status || order['order-status'];
+      if (status === 'Filled' || status === 'Partially Filled') {
+        return {
+          type: 'fill',
+          timestamp: new Date().toISOString(),
+          orderId: order.id || order['order-id'],
+          symbol: order['underlying-symbol'] || order.symbol,
+          quantity: order.size || order.quantity || order['filled-quantity'],
+          price: order.price || order['avg-fill-price'],
+          status: status,
+          legs: order.legs || []
+        };
+      }
+    }
+    
+    // Structure 4: Account notification format
+    if (message.action === 'order-updated' || message.action === 'order-filled') {
+      const order = message.value || message.data || message;
+      return {
+        type: 'fill',
+        timestamp: new Date().toISOString(),
+        orderId: order.id || order['order-id'],
+        symbol: order['underlying-symbol'] || order.symbol,
+        quantity: order.size || order.quantity || order['filled-quantity'],
+        price: order.price || order['avg-fill-price'],
+        status: order.status || 'Filled',
+        legs: order.legs || []
+      };
     }
     
     return null;
@@ -244,23 +303,45 @@ class TradingBroadcaster {
     }
 
     try {
-      // Find trading channel
-      const channel = this.discordClient.channels.cache.find(
-        ch => ch.name === 'trading-signals' || ch.name === 'trading'
-      );
+      // Get channel IDs from environment
+      const channelIds = [
+        process.env.VIP_CHANNEL_ID,
+        process.env.PREMIUM_CHANNEL_ID,
+        process.env.BASIC_CHANNEL_ID
+      ].filter(Boolean);
 
-      if (!channel) {
-        console.warn('Trading channel not found');
+      if (channelIds.length === 0) {
+        // Fallback to finding channel by name
+        const channel = this.discordClient.channels.cache.find(
+          ch => ch.name === 'trading-signals' || ch.name === 'trading'
+        );
+
+        if (!channel) {
+          console.warn('Trading channel not found - set VIP_CHANNEL_ID, PREMIUM_CHANNEL_ID, or BASIC_CHANNEL_ID in .env');
+          return;
+        }
+
+        const message = this.formatSignalMessage(signal);
+        await channel.send(message);
+        console.log('✅ Signal broadcasted to Discord (fallback channel)');
         return;
       }
 
       // Format message based on signal type
       const message = this.formatSignalMessage(signal);
       
-      // Send to Discord
-      await channel.send(message);
-      
-      console.log('✅ Signal broadcasted to Discord');
+      // Send to all configured channels
+      for (const channelId of channelIds) {
+        try {
+          const channel = await this.discordClient.channels.fetch(channelId);
+          if (channel) {
+            await channel.send(message);
+            console.log(`✅ Signal broadcasted to channel ${channel.name || channelId}`);
+          }
+        } catch (channelError) {
+          console.error(`Failed to send to channel ${channelId}:`, channelError.message);
+        }
+      }
     } catch (error) {
       console.error('Error broadcasting to Discord:', error);
     }

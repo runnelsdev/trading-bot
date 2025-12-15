@@ -196,7 +196,7 @@ function extractDetailedFillData(message) {
           price: order.price,
           
           // Instrument details
-          instrumentType: order.legs?.[0]?['instrument-type'] || 'Equity',
+          instrumentType: order.legs?.[0]?.['instrument-type'] || 'Equity',
           
           // Option details (if applicable)
           strike: order.legs?.[0]?.['strike-price'],

@@ -1,14 +1,14 @@
 {
-  "tastytradeUsername": "fdfd390b26d2e29abcd3c693f3d79c55:a0d4385c39ced66181d84da3295954f4",
-  "tastytradePassword": "d15393adf2e124ebbdcc46292adb4e6b:301c08d96f59fd9e95570753c50297ed4eaa544952776f0a2d92a659b25a403f",
-  "tastytradeAccountNumber": "5WZ12077",
-  "channelId": "1401856523495407677",
-  "channelName": "vip-signals",
+  "tastytradeUsername": "052914705172b9ae9cb16db29695d36a:60b05cb8d93217523aed507c62a8695b",
+  "tastytradePassword": "16eb093f62c9cbedee91f0a21b79518a:a5421143f8f7e1d82bdb754cb367fb463514244d9134c23772a9c0b7d5428ef5",
+  "tastytradeAccountNumber": "5WI14176",
+  "channelId": "1443238719707680959",
+  "channelName": "VIP Signals",
   "sizingMethod": "fixed",
   "quantity": 1,
   "multiplier": 1,
   "percentage": 5,
   "maxDailyTrades": 10,
   "maxDailyLoss": 1000,
-  "configuredAt": "2025-11-18T14:42:29.102Z"
+  "configuredAt": "2025-12-10T19:29:38.918Z"
 }

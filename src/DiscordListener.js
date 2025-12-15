@@ -137,33 +137,37 @@ class DiscordListener {
     // Only process messages from subscribed channel
     if (message.channel.id !== this.config.channelId) return;
     
-    // Log all messages for monitoring (except bot messages)
-    if (!message.author.bot) {
-      const timestamp = new Date().toISOString();
-      const author = message.author.tag;
-      const content = message.content || '[No text content]';
-      const hasEmbeds = message.embeds.length > 0;
-      
-      console.log(`📨 [${timestamp}] ${author} in #${message.channel.name}:`);
-      if (content && content !== '[No text content]') {
-        console.log(`   ${content.substring(0, 200)}${content.length > 200 ? '...' : ''}`);
-      }
-      if (hasEmbeds) {
-        console.log(`   📎 ${message.embeds.length} embed(s) attached`);
-      }
+    // Log all messages for monitoring
+    const timestamp = new Date().toISOString();
+    const author = message.author.tag;
+    const content = message.content || '[No text content]';
+    const hasEmbeds = message.embeds.length > 0;
+    const isBot = message.author.bot;
+    
+    console.log(`📨 [${timestamp}] ${author}${isBot ? ' (BOT)' : ''} in #${message.channel.name}:`);
+    if (content && content !== '[No text content]') {
+      console.log(`   ${content.substring(0, 200)}${content.length > 200 ? '...' : ''}`);
+    }
+    if (hasEmbeds) {
+      console.log(`   📎 ${message.embeds.length} embed(s) attached`);
+      // Log embed title for debugging
+      message.embeds.forEach((embed, i) => {
+        console.log(`   📋 Embed ${i + 1} title: ${embed.title || '[no title]'}`);
+      });
     }
     
-    // Ignore bot messages for signal processing
-    if (message.author.bot) return;
-    
-    // Check for signal in embeds
+    // Check for signal/fill in embeds (process from bots too - fill notifications)
     if (message.embeds.length > 0) {
       const signal = this.parseSignalFromEmbed(message.embeds[0]);
       if (signal) {
+        console.log(`🎯 Parsed signal from embed: ${JSON.stringify(signal)}`);
         await this.processSignal(signal, message);
+        return;
       }
-      return;
     }
+    
+    // For text-based signals, ignore bot messages (prevent loops)
+    if (message.author.bot) return;
     
     // Check for signal in message content (alternative format)
     const signal = this.parseSignalFromText(message.content);
@@ -235,39 +239,55 @@ class DiscordListener {
    * Parse signal from Discord embed
    */
   parseSignalFromEmbed(embed) {
-    // Check if it's a signal
+    // Check if it's a signal or fill notification
     const title = embed.title || '';
     const description = embed.description || '';
+    const upperTitle = title.toUpperCase();
     
-    if (!title.toUpperCase().includes('SIGNAL') && 
-        !description.toUpperCase().includes('SIGNAL')) {
+    const isSignal = upperTitle.includes('SIGNAL') || description.toUpperCase().includes('SIGNAL');
+    const isFill = upperTitle.includes('FILL') || upperTitle.includes('ORDER');
+    
+    if (!isSignal && !isFill) {
       return null;
     }
     
     const fields = {};
-    embed.fields.forEach(field => {
+    embed.fields?.forEach(field => {
       const key = field.name.toLowerCase().replace(/\s+/g, '');
       fields[key] = field.value;
     });
     
-    // Extract signal data
-    const symbol = fields.symbol || fields.ticker || this.extractSymbol(description);
-    const action = fields.action || this.extractAction(description);
-    const quantity = parseInt(fields.quantity || fields.size || '1');
-    const orderType = fields.type || fields['ordertype'] || 'Market';
+    // Extract signal data - handle both signal and fill formats
+    const symbol = fields.symbol || fields.ticker || this.extractSymbol(description) || this.extractSymbol(title);
+    const action = fields.action || this.extractAction(description) || this.extractAction(title);
+    const quantity = parseInt(fields.quantity || fields.size || fields.filledquantity || fields['filled'] || '1');
+    
+    // Get order type - but filter out instrument types that might be in a "type" field
+    let orderType = fields['ordertype'] || 'Market';
+    if (fields.type && !['Equity', 'Equity Option', 'Future', 'Cryptocurrency'].includes(fields.type)) {
+      orderType = fields.type;
+    }
+    
+    // For fill notifications, also check orderid field
+    const orderId = fields.orderid || fields['order-id'] || embed.footer?.text?.split('ID: ')[1] || `signal_${Date.now()}`;
     
     if (!symbol || !action) {
+      console.log(`   ⚠️ Could not extract symbol (${symbol}) or action (${action}) from embed`);
+      console.log(`   📋 Fields found: ${Object.keys(fields).join(', ')}`);
       return null;
     }
     
+    const source = isFill ? 'fill_notification' : 'discord_embed';
+    console.log(`   ✅ Parsed ${source}: ${action} ${quantity} ${symbol}`);
+    
     return {
-      id: embed.footer?.text?.split('ID: ')[1] || `signal_${Date.now()}`,
+      id: orderId,
       symbol: symbol.toUpperCase(),
       action: this.normalizeAction(action),
       quantity: quantity || 1,
       orderType: orderType,
       timestamp: embed.timestamp || new Date(),
-      source: 'discord_embed'
+      source: source
     };
   }
 
