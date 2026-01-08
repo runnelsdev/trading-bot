@@ -1,9 +1,11 @@
 const TastytradeClient = require('@tastytrade/api').default;
 const PositionSizer = require('./PositionSizer');
+const ConfigClient = require('./ConfigClient');
 
 /**
  * Tastytrade Executor
  * Executes trades in Tastytrade account
+ * Integrates with Central Server for subscription tier validation
  */
 class TastytradeExecutor {
   constructor(config) {
@@ -23,10 +25,26 @@ class TastytradeExecutor {
     this.tradesExecutedToday = 0;
     this.lossToday = 0;
     this.lastResetDate = new Date().toDateString();
+    
+    // Initialize Central Server ConfigClient (optional)
+    this.configClient = null;
+    if (process.env.CENTRAL_SERVER_URL && process.env.CENTRAL_SUBSCRIBER_ID && process.env.CENTRAL_BOT_TOKEN) {
+      try {
+        this.configClient = new ConfigClient({
+          serverUrl: process.env.CENTRAL_SERVER_URL,
+          subscriberId: process.env.CENTRAL_SUBSCRIBER_ID,
+          botToken: process.env.CENTRAL_BOT_TOKEN
+        });
+        console.log('🔗 Central Server ConfigClient initialized');
+      } catch (error) {
+        console.warn('⚠️  Failed to initialize ConfigClient:', error.message);
+        this.configClient = null;
+      }
+    }
   }
 
   /**
-   * Connect to Tastytrade
+   * Connect to Tastytrade and Central Server
    */
   async connect() {
     console.log('🔌 Connecting to Tastytrade...');
@@ -63,6 +81,17 @@ class TastytradeExecutor {
       );
       console.log('✅ Tastytrade connected (Session)');
     }
+    
+    // Connect to Central Server for tier validation (optional)
+    if (this.configClient && process.env.CENTRAL_DISCORD_USER_ID) {
+      try {
+        await this.configClient.authenticate(process.env.CENTRAL_DISCORD_USER_ID);
+        console.log('✅ Central Server connected');
+      } catch (error) {
+        console.warn('⚠️  Central Server connection failed:', error.message);
+        console.warn('   Trading will continue without tier validation');
+      }
+    }
   }
 
   /**
@@ -98,6 +127,15 @@ class TastytradeExecutor {
     try {
       // Reset counters if new day
       this.resetDailyCounters();
+      
+      // Check Central Server tier validation (if connected)
+      if (this.configClient) {
+        if (!this.configClient.canTradeToday()) {
+          const info = this.configClient.getBlockingInfo();
+          console.log(`⛔ Trading blocked by Central Server: ${info?.message || 'Unknown reason'}`);
+          return { success: false, reason: 'tier_blocked', message: info?.message };
+        }
+      }
       
       // Check daily limits
       if (this.tradesExecutedToday >= this.config.maxDailyTrades) {
@@ -196,6 +234,17 @@ class TastytradeExecutor {
         const orderId = result.data?.order?.id || result.data?.order?.['order-id'] || 'unknown';
         console.log(`✅ Trade executed: Order ID ${orderId}`);
         
+        // Report trade to Central Server (async, non-blocking)
+        if (this.configClient) {
+          this.configClient.reportTrade({
+            symbol: signal.symbol,
+            quantity: quantity,
+            fillPrice: signal.price || 0,
+            pnl: 0, // Will be updated when position closes
+            timestamp: new Date().toISOString()
+          });
+        }
+        
         return {
           success: true,
           orderId,
@@ -255,6 +304,17 @@ class TastytradeExecutor {
                 const orderId = result.data?.order?.id || result.data?.order?.['order-id'] || 'unknown';
                 console.log(`✅ Trade executed (with GTC): Order ID ${orderId}`);
                 
+                // Report trade to Central Server (async, non-blocking)
+                if (this.configClient) {
+                  this.configClient.reportTrade({
+                    symbol: signal.symbol,
+                    quantity: quantity,
+                    fillPrice: signal.price || 0,
+                    pnl: 0,
+                    timestamp: new Date().toISOString()
+                  });
+                }
+                
                 return {
                   success: true,
                   orderId,
@@ -309,6 +369,37 @@ class TastytradeExecutor {
       lossToday: this.lossToday,
       maxDailyLoss: this.config.maxDailyLoss
     };
+  }
+
+  /**
+   * Get Central Server status (for display/debugging)
+   */
+  getCentralServerStatus() {
+    if (!this.configClient) {
+      return { connected: false, reason: 'not_configured' };
+    }
+    
+    const status = this.configClient.getStatus();
+    if (!status) {
+      return { connected: false, reason: 'not_authenticated' };
+    }
+    
+    return {
+      connected: true,
+      canTrade: this.configClient.canTradeToday(),
+      tier: status.tier,
+      monthlyProfitUsed: status.monthlyProfitUsed,
+      monthlyCapLimit: status.monthlyCapLimit,
+      maxPositionSize: status.maxPositionSize,
+      validUntil: status.validUntil
+    };
+  }
+
+  /**
+   * Get ConfigClient instance (for external access if needed)
+   */
+  getConfigClient() {
+    return this.configClient;
   }
 }
 

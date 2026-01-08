@@ -1,6 +1,8 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
 const TradingBroadcaster = require('./trading-broadcaster');
+const FillBroadcaster = require('./fill-broadcaster');
+const ConfigClient = require('./ConfigClient');
 
 // Handle uncaught exceptions to prevent crashes from library issues
 process.on('uncaughtException', (error) => {
@@ -23,6 +25,8 @@ const discordClient = new Client({
 });
 
 let tradingBroadcaster = null;
+let fillBroadcaster = null;
+let configClient = null;
 
 // Discord bot ready
 discordClient.once('clientReady', async () => {
@@ -47,6 +51,29 @@ discordClient.once('clientReady', async () => {
   
   tradingBroadcaster = new TradingBroadcaster(discordClient, accountNumber, configProfile);
   await tradingBroadcaster.initialize();
+  
+  // Initialize Fill Broadcaster for fill notifications
+  fillBroadcaster = new FillBroadcaster(discordClient);
+  console.log('✅ Fill Broadcaster initialized');
+  
+  // Initialize Central Server connection (optional)
+  if (process.env.CENTRAL_SERVER_URL && process.env.CENTRAL_SUBSCRIBER_ID && process.env.CENTRAL_BOT_TOKEN) {
+    try {
+      configClient = new ConfigClient({
+        serverUrl: process.env.CENTRAL_SERVER_URL,
+        subscriberId: process.env.CENTRAL_SUBSCRIBER_ID,
+        botToken: process.env.CENTRAL_BOT_TOKEN
+      });
+      
+      if (process.env.CENTRAL_DISCORD_USER_ID) {
+        await configClient.authenticate(process.env.CENTRAL_DISCORD_USER_ID);
+        console.log('✅ Central Server connected');
+      }
+    } catch (error) {
+      console.warn('⚠️  Central Server connection failed:', error.message);
+      configClient = null;
+    }
+  }
   
   // Connect to account streamer for real-time fill notifications
   try {
@@ -106,6 +133,80 @@ discordClient.on('messageCreate', async (message) => {
     } else {
       await message.reply('No latency data available');
     }
+  }
+
+  // Command: !test-fill - Test fill notifications
+  if (message.content === '!test-fill') {
+    if (!fillBroadcaster) {
+      await message.reply('Fill broadcaster not initialized');
+      return;
+    }
+
+    try {
+      await message.reply('🧪 Sending test fill...');
+      
+      const testFill = {
+        orderId: `LIVE-TEST-${Date.now()}`,
+        symbol: 'SPY',
+        action: 'Buy to Open',
+        quantity: 1,
+        fillPrice: 450.00,
+        totalValue: 45000.00,
+        type: 'Equity Option',
+        optionType: 'CALL',
+        strike: 450,
+        expiration: '2024-12-20',
+        status: 'Filled',
+        accountNumber: process.env.TASTYTRADE_ACCOUNT_NUMBER || '**8917'
+      };
+
+      const result = await fillBroadcaster.broadcastFill(testFill);
+      
+      // Count successful sends
+      const successCount = [result.vip, result.premium, result.basic]
+        .filter(r => r && r.success).length;
+      const totalTiers = [result.vip, result.premium, result.basic]
+        .filter(r => r && !r.skipped).length;
+      
+      if (successCount > 0) {
+        await message.reply(`✅ Test fill sent to ${successCount}/${totalTiers} tiers`);
+      } else {
+        await message.reply(`❌ Test fill failed: ${result.errors?.[0]?.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Test fill error:', error);
+      await message.reply(`❌ Test fill failed: ${error.message}`);
+    }
+    return;
+  }
+
+  // Command: !central-status - Check Central Server status
+  if (message.content === '!central-status') {
+    if (!configClient) {
+      await message.reply('🔴 Central Server not configured or connection failed');
+      return;
+    }
+
+    const status = configClient.getStatus();
+    if (!status) {
+      await message.reply('🔴 Not authenticated with Central Server');
+      return;
+    }
+
+    const canTrade = configClient.canTradeToday();
+    const validUntil = new Date(status.validUntil).toLocaleString();
+    
+    await message.reply(
+      `🏢 **Central Server Status**\n` +
+      `Status: ${canTrade ? '✅ Trading Enabled' : '⛔ Trading Disabled'}\n` +
+      `Tier: ${status.tier}\n` +
+      `Monthly Profit: $${status.monthlyProfitUsed?.toLocaleString() || 0} / $${status.monthlyCapLimit?.toLocaleString() || 0}\n` +
+      `Max Position: $${status.maxPositionSize?.toLocaleString() || 0}\n` +
+      `Valid Until: ${validUntil}\n` +
+      (status.reason ? `Reason: ${status.reason}\n` : '') +
+      (status.message ? `Message: ${status.message}` : '')
+    );
+    return;
   }
 
   // Command: !queue-order (example)
