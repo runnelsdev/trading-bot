@@ -6,9 +6,11 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
+    "start:all": "node src/bot-manager.js",
     "subscriber": "node src/subscriber-bot.js",
     "fill-follower": "node src/fill-follower-bot.js",
     "live-fills": "node src/live-fills-integration.js",
+    "bot-manager": "node src/bot-manager.js",
     "test-discord": "node src/test-discord-connection.js",
     "test-discord-bot": "node src/test-discord-bot.js",
     "update-sidecar": "node src/update-sidecar.js",
