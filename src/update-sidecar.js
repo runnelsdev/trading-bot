@@ -8,20 +8,35 @@
 const { execSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
+const http = require('http');
+
+// Keys that should NEVER be overwritten (bot-specific data)
+const PROTECTED_KEYS = [
+  'TASTYTRADE_USERNAME',
+  'TASTYTRADE_PASSWORD',
+  'TASTYTRADE_ACCOUNT_NUMBER',
+  'DEPLOYMENT_ID',
+  'DISCORD_USER_ID'
+];
 
 class UpdateSidecar {
   constructor(options = {}) {
     this.checkInterval = options.checkInterval || 24 * 60 * 60 * 1000; // 24 hours
     this.enableGitUpdates = options.enableGitUpdates !== false;
     this.enableNpmUpdates = options.enableNpmUpdates !== false;
+    this.enableEnvSync = options.enableEnvSync !== false;
     this.autoRestart = options.autoRestart !== false;
     this.logFile = options.logFile || path.join(__dirname, '../logs/update-sidecar.log');
     this.pidFile = options.pidFile || path.join(__dirname, '../logs/update-sidecar.pid');
-    
+    this.envFile = options.envFile || path.join(__dirname, '../.env');
+    this.centralServerUrl = options.centralServerUrl || process.env.CENTRAL_SERVER_URL;
+    this.centralBotToken = options.centralBotToken || process.env.CENTRAL_BOT_TOKEN;
+
     this.isUpdating = false;
     this.lastCheck = null;
     this.updateTimer = null;
-    
+
     // Ensure logs directory exists
     this.ensureLogsDirectory();
   }
@@ -232,6 +247,176 @@ class UpdateSidecar {
   }
 
   /**
+   * Parse .env file into object
+   */
+  parseEnvFile(filePath) {
+    const env = {};
+    if (!fs.existsSync(filePath)) {
+      return env;
+    }
+
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Skip empty lines and comments
+      if (!trimmed || trimmed.startsWith('#')) continue;
+
+      const eqIndex = trimmed.indexOf('=');
+      if (eqIndex > 0) {
+        const key = trimmed.substring(0, eqIndex).trim();
+        const value = trimmed.substring(eqIndex + 1).trim();
+        env[key] = value;
+      }
+    }
+
+    return env;
+  }
+
+  /**
+   * Write env object to .env file
+   */
+  writeEnvFile(filePath, env) {
+    const lines = [];
+    for (const [key, value] of Object.entries(env)) {
+      lines.push(`${key}=${value}`);
+    }
+    fs.writeFileSync(filePath, lines.join('\n') + '\n');
+  }
+
+  /**
+   * Fetch global config from central server
+   */
+  async fetchGlobalConfig() {
+    return new Promise((resolve, reject) => {
+      if (!this.centralServerUrl) {
+        return reject(new Error('CENTRAL_SERVER_URL not configured'));
+      }
+
+      const url = new URL('/bot/global-config', this.centralServerUrl);
+      const client = url.protocol === 'https:' ? https : http;
+
+      const req = client.request(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.centralBotToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            try {
+              const config = JSON.parse(data);
+              resolve(config);
+            } catch (e) {
+              reject(new Error('Invalid JSON response'));
+            }
+          } else if (res.statusCode === 404) {
+            // Endpoint doesn't exist yet - not an error
+            resolve(null);
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+          }
+        });
+      });
+
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+      req.end();
+    });
+  }
+
+  /**
+   * Check for .env updates from central server
+   */
+  async checkEnvUpdates() {
+    if (!this.enableEnvSync) {
+      return { hasUpdates: false, message: 'Env sync disabled' };
+    }
+
+    if (!this.centralServerUrl) {
+      return { hasUpdates: false, message: 'Central server not configured' };
+    }
+
+    try {
+      this.log('Checking for .env updates from central server...');
+
+      const globalConfig = await this.fetchGlobalConfig();
+
+      if (!globalConfig || !globalConfig.env) {
+        return { hasUpdates: false, message: 'No global config available' };
+      }
+
+      // Parse current .env
+      const currentEnv = this.parseEnvFile(this.envFile);
+
+      // Check for differences (excluding protected keys)
+      const updates = {};
+      for (const [key, value] of Object.entries(globalConfig.env)) {
+        if (PROTECTED_KEYS.includes(key)) {
+          continue; // Never update protected keys
+        }
+        if (currentEnv[key] !== value) {
+          updates[key] = value;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        return {
+          hasUpdates: true,
+          message: `${Object.keys(updates).length} env var(s) to update`,
+          updates
+        };
+      }
+
+      return { hasUpdates: false, message: 'No .env updates available' };
+    } catch (error) {
+      this.log(`Error checking .env updates: ${error.message}`, 'ERROR');
+      return { hasUpdates: false, message: `Error: ${error.message}` };
+    }
+  }
+
+  /**
+   * Apply .env updates (preserving protected keys)
+   */
+  async applyEnvUpdates(updates) {
+    try {
+      this.log('Applying .env updates...');
+
+      // Read current env
+      const currentEnv = this.parseEnvFile(this.envFile);
+
+      // Merge updates (protected keys are already filtered out)
+      const newEnv = { ...currentEnv, ...updates };
+
+      // Backup current .env
+      const backupPath = this.envFile + '.backup';
+      if (fs.existsSync(this.envFile)) {
+        fs.copyFileSync(this.envFile, backupPath);
+        this.log(`Backed up .env to ${backupPath}`);
+      }
+
+      // Write new .env
+      this.writeEnvFile(this.envFile, newEnv);
+
+      const updatedKeys = Object.keys(updates).join(', ');
+      this.log(`Updated env vars: ${updatedKeys}`);
+
+      return { success: true, message: '.env updates applied successfully' };
+    } catch (error) {
+      this.log(`Error applying .env updates: ${error.message}`, 'ERROR');
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
    * Restart the main application
    */
   async restartApplication() {
@@ -318,6 +503,23 @@ class UpdateSidecar {
         }
       }
 
+      // Check .env updates from central server
+      let envUpdates = null;
+      if (this.enableEnvSync) {
+        const envCheck = await this.checkEnvUpdates();
+        if (envCheck.hasUpdates) {
+          hasUpdates = true;
+          updates.push('env');
+          envUpdates = envCheck.updates;
+          this.log(`ENV: ${envCheck.message}`);
+          for (const key of Object.keys(envCheck.updates)) {
+            this.log(`  - ${key}`);
+          }
+        } else {
+          this.log(`ENV: ${envCheck.message}`);
+        }
+      }
+
       // Apply updates if available
       if (hasUpdates) {
         this.log('Updates available! Applying...');
@@ -333,6 +535,13 @@ class UpdateSidecar {
           const npmResult = await this.applyNpmUpdates();
           if (!npmResult.success) {
             this.log(`NPM update failed: ${npmResult.message}`, 'ERROR');
+          }
+        }
+
+        if (updates.includes('env') && envUpdates) {
+          const envResult = await this.applyEnvUpdates(envUpdates);
+          if (!envResult.success) {
+            this.log(`ENV update failed: ${envResult.message}`, 'ERROR');
           }
         }
 
@@ -360,7 +569,10 @@ class UpdateSidecar {
     this.log(`Check interval: ${this.checkInterval / 1000 / 60 / 60} hours`);
     this.log(`Git updates: ${this.enableGitUpdates ? 'enabled' : 'disabled'}`);
     this.log(`NPM updates: ${this.enableNpmUpdates ? 'enabled' : 'disabled'}`);
+    this.log(`Env sync: ${this.enableEnvSync ? 'enabled' : 'disabled'}`);
+    this.log(`Central server: ${this.centralServerUrl || 'not configured'}`);
     this.log(`Auto-restart: ${this.autoRestart ? 'enabled' : 'disabled'}`);
+    this.log(`Protected keys: ${PROTECTED_KEYS.join(', ')}`);
 
     // Save PID
     fs.writeFileSync(this.pidFile, process.pid.toString());
@@ -416,12 +628,15 @@ class UpdateSidecar {
 // CLI interface
 if (require.main === module) {
   const sidecar = new UpdateSidecar({
-    checkInterval: process.env.UPDATE_CHECK_INTERVAL 
-      ? parseInt(process.env.UPDATE_CHECK_INTERVAL) 
+    checkInterval: process.env.UPDATE_CHECK_INTERVAL
+      ? parseInt(process.env.UPDATE_CHECK_INTERVAL)
       : 24 * 60 * 60 * 1000,
     enableGitUpdates: process.env.ENABLE_GIT_UPDATES !== 'false',
     enableNpmUpdates: process.env.ENABLE_NPM_UPDATES !== 'false',
-    autoRestart: process.env.AUTO_RESTART !== 'false'
+    enableEnvSync: process.env.ENABLE_ENV_SYNC !== 'false',
+    autoRestart: process.env.AUTO_RESTART !== 'false',
+    centralServerUrl: process.env.CENTRAL_SERVER_URL,
+    centralBotToken: process.env.CENTRAL_BOT_TOKEN
   });
 
   // Handle graceful shutdown
