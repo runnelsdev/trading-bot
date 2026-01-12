@@ -4,3 +4,4 @@ config/config.json
 logs/
 *.log
 .DS_Store
+config/bot-config.json
