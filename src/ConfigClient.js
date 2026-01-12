@@ -6,20 +6,26 @@ class ConfigClient {
     if (!config.serverUrl) {
       throw new Error('serverUrl is required');
     }
-    if (!config.subscriberId) {
-      throw new Error('subscriberId is required');
-    }
     if (!config.botToken) {
       throw new Error('botToken is required');
     }
-    
+    // Need either subscriberId or deploymentId
+    if (!config.subscriberId && !config.deploymentId) {
+      throw new Error('subscriberId or deploymentId is required');
+    }
+
     this.serverUrl = config.serverUrl.replace(/\/$/, ''); // Remove trailing slash
     this.subscriberId = config.subscriberId;
+    this.deploymentId = config.deploymentId;
     this.botToken = config.botToken;
     this.sessionToken = null;
+    this.botId = null;  // Will be set after authentication
     this.tradingStatus = null;
-    
+
     console.log(`🔗 ConfigClient initialized: ${this.serverUrl}`);
+    if (this.deploymentId) {
+      console.log(`   Deployment: ${this.deploymentId}`);
+    }
   }
 
   /**
@@ -39,15 +45,18 @@ class ConfigClient {
         {
           subscriberId: this.subscriberId,
           botToken: this.botToken,
-          discordUserId: discordUserId
+          discordUserId: discordUserId,
+          deploymentId: this.deploymentId  // For multi-bot support
         },
         {
           timeout: 10000,
           headers: { 'Content-Type': 'application/json' }
         }
       );
-      
+
       this.sessionToken = response.data.sessionToken;
+      this.botId = response.data.botId;  // Store botId for tracking
+      this.subscriberId = response.data.subscriberId || this.subscriberId;  // Update if server returned it
       this.tradingStatus = response.data.status;
       
       // Validate status is current
@@ -62,6 +71,10 @@ class ConfigClient {
       
       // Log authentication result
       console.log('✅ Authenticated with central server');
+      if (this.botId) {
+        console.log(`   Bot ID: ${this.botId}`);
+      }
+      console.log(`   Subscriber: ${this.subscriberId}`);
       console.log(`   Status: ${this.tradingStatus.canTrade ? '✅ ENABLED' : '⛔ DISABLED'}`);
       
       if (this.tradingStatus.canTrade) {

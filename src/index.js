@@ -57,11 +57,13 @@ discordClient.once('clientReady', async () => {
   console.log('✅ Fill Broadcaster initialized');
   
   // Initialize Central Server connection (optional)
-  if (process.env.CENTRAL_SERVER_URL && process.env.CENTRAL_SUBSCRIBER_ID && process.env.CENTRAL_BOT_TOKEN) {
+  // Need CENTRAL_SERVER_URL, CENTRAL_BOT_TOKEN, and either CENTRAL_SUBSCRIBER_ID or DEPLOYMENT_ID
+  if (process.env.CENTRAL_SERVER_URL && process.env.CENTRAL_BOT_TOKEN && (process.env.CENTRAL_SUBSCRIBER_ID || process.env.DEPLOYMENT_ID)) {
     try {
       configClient = new ConfigClient({
         serverUrl: process.env.CENTRAL_SERVER_URL,
         subscriberId: process.env.CENTRAL_SUBSCRIBER_ID,
+        deploymentId: process.env.DEPLOYMENT_ID,
         botToken: process.env.CENTRAL_BOT_TOKEN
       });
       

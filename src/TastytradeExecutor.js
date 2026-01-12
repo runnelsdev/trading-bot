@@ -27,12 +27,14 @@ class TastytradeExecutor {
     this.lastResetDate = new Date().toDateString();
     
     // Initialize Central Server ConfigClient (optional)
+    // Need CENTRAL_SERVER_URL, CENTRAL_BOT_TOKEN, and either CENTRAL_SUBSCRIBER_ID or DEPLOYMENT_ID
     this.configClient = null;
-    if (process.env.CENTRAL_SERVER_URL && process.env.CENTRAL_SUBSCRIBER_ID && process.env.CENTRAL_BOT_TOKEN) {
+    if (process.env.CENTRAL_SERVER_URL && process.env.CENTRAL_BOT_TOKEN && (process.env.CENTRAL_SUBSCRIBER_ID || process.env.DEPLOYMENT_ID)) {
       try {
         this.configClient = new ConfigClient({
           serverUrl: process.env.CENTRAL_SERVER_URL,
           subscriberId: process.env.CENTRAL_SUBSCRIBER_ID,
+          deploymentId: process.env.DEPLOYMENT_ID,
           botToken: process.env.CENTRAL_BOT_TOKEN
         });
         console.log('🔗 Central Server ConfigClient initialized');
