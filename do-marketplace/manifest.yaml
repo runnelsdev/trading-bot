@@ -22,87 +22,183 @@ droplet:
 # Installation script
 user_data: |
   #!/bin/bash
-  
+  set -e  # Exit on error
+
+  LOG_FILE="/var/log/trading-bot-install.log"
+  exec > >(tee -a "$LOG_FILE") 2>&1
+
+  echo "=========================================="
+  echo "Trading Bot Installation Started"
+  echo "$(date)"
+  echo "=========================================="
+
   # Update system
+  echo "📦 Updating system packages..."
   apt-get update
-  apt-get upgrade -y
-  
+  DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
+
   # Install Node.js 20
+  echo "📦 Installing Node.js 20..."
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   apt-get install -y nodejs
-  
+
+  # Verify Node.js installation
+  node --version || { echo "❌ Node.js installation failed"; exit 1; }
+  npm --version || { echo "❌ npm installation failed"; exit 1; }
+
   # Install PM2 (process manager)
+  echo "📦 Installing PM2..."
   npm install -g pm2
-  
+  pm2 --version || { echo "❌ PM2 installation failed"; exit 1; }
+
   # Install nginx for reverse proxy
+  echo "📦 Installing nginx..."
   apt-get install -y nginx
-  
+
   # Create app directory
+  echo "📂 Setting up application directory..."
   mkdir -p /opt/trading-bot
   cd /opt/trading-bot
-  
+
   # Download bot application
+  echo "📥 Downloading application..."
   curl -L https://github.com/yourusername/trading-bot/archive/main.tar.gz | tar xz --strip-components=1 || {
     # Fallback: clone from git
     apt-get install -y git
     git clone https://github.com/yourusername/trading-bot.git .
   }
-  
+
+  # Verify source files exist
+  if [ ! -f "src/subscriber-bot.js" ]; then
+    echo "❌ Source files not found!"
+    exit 1
+  fi
+
   # Install dependencies
+  echo "📦 Installing npm dependencies..."
   npm install --production
-  
+
+  # Verify dependencies installed
+  if [ ! -d "node_modules" ]; then
+    echo "❌ npm install failed - node_modules not found"
+    exit 1
+  fi
+
   # Create environment file
+  echo "📝 Creating environment file..."
   cat > .env << EOL
   NODE_ENV=production
   PORT=3000
   FIRST_RUN=true
   EOL
-  
+
   # Setup nginx reverse proxy
-  cat > /etc/nginx/sites-available/trading-bot << NGINX
+  echo "🔧 Configuring nginx..."
+  cat > /etc/nginx/sites-available/trading-bot << 'NGINX'
   server {
       listen 80;
       server_name _;
-      
+
+      # Increase timeouts for WebSocket connections
+      proxy_connect_timeout 60s;
+      proxy_send_timeout 60s;
+      proxy_read_timeout 60s;
+
       location / {
-          proxy_pass http://localhost:3000;
+          proxy_pass http://127.0.0.1:3000;
           proxy_http_version 1.1;
-          proxy_set_header Upgrade \$http_upgrade;
+          proxy_set_header Upgrade $http_upgrade;
           proxy_set_header Connection 'upgrade';
-          proxy_set_header Host \$host;
-          proxy_cache_bypass \$http_upgrade;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_cache_bypass $http_upgrade;
+      }
+
+      # Health check endpoint
+      location /health {
+          proxy_pass http://127.0.0.1:3000/health;
+          proxy_http_version 1.1;
       }
   }
   NGINX
-  
+
   ln -sf /etc/nginx/sites-available/trading-bot /etc/nginx/sites-enabled/
   rm -f /etc/nginx/sites-enabled/default
-  nginx -t && systemctl reload nginx
-  
-  # Start configuration server
-  pm2 start index.js --name trading-bot
+
+  # Test and reload nginx
+  nginx -t || { echo "❌ nginx configuration invalid"; exit 1; }
+  systemctl reload nginx
+  systemctl enable nginx
+
+  # Start the subscriber bot (web setup server)
+  echo "🚀 Starting trading bot service..."
+  cd /opt/trading-bot
+  pm2 start src/subscriber-bot.js --name trading-bot --cwd /opt/trading-bot
+
+  # Wait for service to start
+  echo "⏳ Waiting for service to start..."
+  sleep 5
+
+  # Verify PM2 process is running
+  if ! pm2 list | grep -q "trading-bot"; then
+    echo "❌ PM2 failed to start trading-bot"
+    pm2 logs trading-bot --lines 50
+    exit 1
+  fi
+
+  # Check if the service is responding
+  for i in {1..10}; do
+    if curl -s http://127.0.0.1:3000/health > /dev/null 2>&1; then
+      echo "✅ Service is responding on port 3000"
+      break
+    fi
+    echo "⏳ Waiting for service... attempt $i/10"
+    sleep 2
+  done
+
+  # Final health check
+  if ! curl -s http://127.0.0.1:3000/health > /dev/null 2>&1; then
+    echo "⚠️  Service may not be fully ready yet. Check logs with: pm2 logs trading-bot"
+  fi
+
+  # Save PM2 configuration
   pm2 save
+
+  # Setup PM2 to start on boot
   pm2 startup systemd -u root --hp /root
-  
+
   # Setup firewall
+  echo "🔒 Configuring firewall..."
   ufw allow 22/tcp
   ufw allow 80/tcp
   ufw allow 443/tcp
   ufw --force enable
-  
+
   # Get public IP
-  IP=$(curl -s http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address)
-  
+  IP=$(curl -s http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address || echo "YOUR_IP")
+
   # Create setup message
   cat > /root/setup-info.txt << INFO
   ================================================
   Trading Bot Installation Complete!
-  
+
   Configure your bot at: http://$IP
+
+  Useful commands:
+    pm2 logs trading-bot    - View logs
+    pm2 restart trading-bot - Restart service
+    pm2 status              - Check status
+
+  Log file: $LOG_FILE
   ================================================
   INFO
-  
+
+  echo ""
   cat /root/setup-info.txt
+  echo ""
+  echo "✅ Installation completed at $(date)"
 
 
 

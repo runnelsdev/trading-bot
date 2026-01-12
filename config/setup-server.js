@@ -1,5 +1,6 @@
 const TastytradeClient = require('@tastytrade/api').default;
 const path = require('path');
+const fs = require('fs');
 
 /**
  * Setup Server Routes
@@ -205,15 +206,30 @@ module.exports = (app, configManager) => {
       
       // Add metadata
       config.configuredAt = new Date().toISOString();
-      
+
       // Save configuration (encrypted) - Discord token comes from .env, not saved in config
       await configManager.save(config);
-      
+
+      // Update FIRST_RUN=false in .env so bot starts in trading mode
+      try {
+        const envPath = path.join(__dirname, '../.env');
+        if (fs.existsSync(envPath)) {
+          let envContent = fs.readFileSync(envPath, 'utf8');
+          if (envContent.includes('FIRST_RUN=true')) {
+            envContent = envContent.replace('FIRST_RUN=true', 'FIRST_RUN=false');
+            fs.writeFileSync(envPath, envContent);
+            console.log('✅ Updated FIRST_RUN=false in .env');
+          }
+        }
+      } catch (envError) {
+        console.error('Warning: Could not update FIRST_RUN in .env:', envError.message);
+      }
+
       res.json({
         success: true,
         message: 'Configuration saved. Restarting bot...'
       });
-      
+
       // Restart the process (PM2 will handle it)
       setTimeout(() => {
         process.exit(0);
@@ -268,48 +284,55 @@ module.exports = (app, configManager) => {
   });
 
   /**
-   * Map Discord roles to available channels
+   * Get signal channels from Discord guild
+   * Fetches actual channel IDs from the server
    */
   function getChannelsForRoles(roleIds, guild) {
-    // Channel mapping based on subscription tiers
-    // Customize this based on your Discord server setup
-    const channelMap = {
-      // Tier 1 channels
-      'tier1': [
-        { id: process.env.CHANNEL_TIER1_ID || 'tier1', name: 'Basic Signals', tier: 'Tier 1', description: 'Entry-level trading signals' }
-      ],
-      // Tier 2 channels
-      'tier2': [
-        { id: process.env.CHANNEL_TIER1_ID || 'tier1', name: 'Basic Signals', tier: 'Tier 1', description: 'Entry-level trading signals' },
-        { id: process.env.CHANNEL_TIER2_ID || 'tier2', name: 'Premium Signals', tier: 'Tier 2', description: 'Advanced trading signals' }
-      ],
-      // Tier 3 channels
-      'tier3': [
-        { id: process.env.CHANNEL_TIER1_ID || 'tier1', name: 'Basic Signals', tier: 'Tier 1', description: 'Entry-level trading signals' },
-        { id: process.env.CHANNEL_TIER2_ID || 'tier2', name: 'Premium Signals', tier: 'Tier 2', description: 'Advanced trading signals' },
-        { id: process.env.CHANNEL_TIER3_ID || 'tier3', name: 'VIP Signals', tier: 'Tier 3', description: 'Exclusive VIP trading signals' }
-      ]
-    };
+    const channels = [];
 
-    // For now, return all channels (you'd check roles in production)
-    // In production, check roleIds against your role mapping
-    const allChannels = [
-      ...channelMap.tier1,
-      ...channelMap.tier2,
-      ...channelMap.tier3
+    // Define which channels are signal channels by name patterns
+    const signalChannelPatterns = [
+      { pattern: /vip[-_]?signals?/i, tier: 'VIP', description: 'Exclusive VIP trading signals' },
+      { pattern: /premium[-_]?signals?/i, tier: 'Premium', description: 'Premium trading signals' },
+      { pattern: /basic[-_]?signals?/i, tier: 'Basic', description: 'Basic trading signals' },
+      { pattern: /signals?[-_]?test/i, tier: 'Test', description: 'Test signals channel' },
+      { pattern: /vip[-_]?channel/i, tier: 'VIP', description: 'VIP channel' },
+      { pattern: /premium[-_]?channel/i, tier: 'Premium', description: 'Premium channel' },
+      { pattern: /basic[-_]?channel/i, tier: 'Basic', description: 'Basic channel' },
     ];
 
-    // Remove duplicates
-    const uniqueChannels = [];
-    const seen = new Set();
-    allChannels.forEach(ch => {
-      if (!seen.has(ch.id)) {
-        seen.add(ch.id);
-        uniqueChannels.push(ch);
+    // Get text channels from guild
+    guild.channels.cache.forEach(channel => {
+      // Only include text channels
+      if (channel.type !== 0) return; // 0 = GUILD_TEXT
+
+      const channelName = channel.name.toLowerCase();
+
+      // Check if channel matches any signal pattern
+      for (const { pattern, tier, description } of signalChannelPatterns) {
+        if (pattern.test(channelName)) {
+          channels.push({
+            id: channel.id,  // Real Discord channel ID
+            name: channel.name,
+            tier: tier,
+            description: description
+          });
+          break;
+        }
       }
     });
 
-    return uniqueChannels;
+    // Sort by tier priority: VIP > Premium > Basic > Test
+    const tierOrder = { 'VIP': 0, 'Premium': 1, 'Basic': 2, 'Test': 3 };
+    channels.sort((a, b) => (tierOrder[a.tier] || 99) - (tierOrder[b.tier] || 99));
+
+    // If no signal channels found, return a helpful message
+    if (channels.length === 0) {
+      console.log('No signal channels found. Available channels:',
+        guild.channels.cache.filter(c => c.type === 0).map(c => c.name).join(', '));
+    }
+
+    return channels;
   }
 };
 
