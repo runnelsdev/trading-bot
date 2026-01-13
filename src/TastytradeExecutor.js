@@ -94,6 +94,47 @@ class TastytradeExecutor {
         console.warn('   Trading will continue without tier validation');
       }
     }
+
+    // Initialize proportional sizing if configured
+    if (this.config.sizingMethod === 'proportional') {
+      await this.initializeProportionalSizing();
+    }
+  }
+
+  /**
+   * Initialize proportional position sizing
+   * Queries follower balance and computes ratio with coach balance
+   */
+  async initializeProportionalSizing() {
+    const coachBalance = this.config.coachBalance || parseFloat(process.env.COACH_ACCOUNT_BALANCE) || 0;
+
+    if (!coachBalance || coachBalance <= 0) {
+      console.warn('⚠️  Coach balance not configured for proportional sizing');
+      console.warn('   Set coachBalance in config or COACH_ACCOUNT_BALANCE env var');
+      console.warn('   Falling back to fixed quantity sizing');
+      this.config.sizingMethod = 'fixed';
+      return;
+    }
+
+    try {
+      await this.sizer.initializeProportionalSizing(coachBalance);
+
+      // Start periodic balance refresh (every 60 seconds by default)
+      const refreshInterval = this.config.balanceCacheTTL || 60000;
+      this.balanceRefreshInterval = setInterval(async () => {
+        try {
+          await this.sizer.refreshFollowerBalance();
+        } catch (error) {
+          console.warn('⚠️  Background balance refresh failed:', error.message);
+        }
+      }, refreshInterval);
+
+      console.log(`📊 Balance refresh scheduled every ${refreshInterval / 1000}s`);
+    } catch (error) {
+      console.error('❌ Failed to initialize proportional sizing:', error.message);
+      console.warn('   Falling back to fixed quantity sizing');
+      this.config.sizingMethod = 'fixed';
+    }
   }
 
   /**
