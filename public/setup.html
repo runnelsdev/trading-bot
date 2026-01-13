@@ -419,6 +419,7 @@
                     <option value="fixed">Fixed Quantity</option>
                     <option value="multiplier">Signal Multiplier</option>
                     <option value="percentage">Account Percentage</option>
+                    <option value="proportional">Proportional to Coach</option>
                 </select>
             </div>
             
@@ -441,7 +442,25 @@
                 <input type="number" id="percentage" value="5" min="1" max="50">
                 <p class="help-text">Use X% of buying power per trade</p>
             </div>
-            
+
+            <div class="form-group" id="proportionalInput" style="display:none;">
+                <label>Coach Account Balance ($)</label>
+                <input type="number" id="coachBalance" value="100000" min="1000" step="1000">
+                <p class="help-text">
+                    Your position size = Coach's size × (Your balance / Coach balance)<br>
+                    Example: Coach trades 10 contracts with $100k, you have $25k → you trade 2-3 contracts
+                </p>
+            </div>
+
+            <div class="form-group" id="proportionalLimits" style="display:none;">
+                <label>Min / Max Contracts</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="minQuantity" value="1" min="1" max="10" style="flex:1;" placeholder="Min">
+                    <input type="number" id="maxQuantity" value="100" min="1" max="500" style="flex:1;" placeholder="Max">
+                </div>
+                <p class="help-text">Minimum and maximum contracts per trade</p>
+            </div>
+
             <div class="form-group">
                 <label>Max Daily Trades</label>
                 <input type="number" id="maxDailyTrades" value="10" min="1">
@@ -489,6 +508,9 @@
             quantity: 1,
             multiplier: 1,
             percentage: 5,
+            coachBalance: 100000,
+            minQuantity: 1,
+            maxQuantity: 100,
             maxDailyTrades: 10,
             maxDailyLoss: 1000
         };
@@ -679,13 +701,17 @@
         
         function updateSizingInputs() {
             const method = document.getElementById('sizingMethod').value;
-            
-            document.getElementById('fixedInput').style.display = 
+
+            document.getElementById('fixedInput').style.display =
                 method === 'fixed' ? 'block' : 'none';
-            document.getElementById('multiplierInput').style.display = 
+            document.getElementById('multiplierInput').style.display =
                 method === 'multiplier' ? 'block' : 'none';
-            document.getElementById('percentageInput').style.display = 
+            document.getElementById('percentageInput').style.display =
                 method === 'percentage' ? 'block' : 'none';
+            document.getElementById('proportionalInput').style.display =
+                method === 'proportional' ? 'block' : 'none';
+            document.getElementById('proportionalLimits').style.display =
+                method === 'proportional' ? 'block' : 'none';
         }
         
         async function saveConfiguration() {
@@ -694,6 +720,9 @@
             config.quantity = parseInt(document.getElementById('fixedQuantity').value);
             config.multiplier = parseFloat(document.getElementById('multiplier').value);
             config.percentage = parseInt(document.getElementById('percentage').value);
+            config.coachBalance = parseFloat(document.getElementById('coachBalance').value);
+            config.minQuantity = parseInt(document.getElementById('minQuantity').value);
+            config.maxQuantity = parseInt(document.getElementById('maxQuantity').value);
             config.maxDailyTrades = parseInt(document.getElementById('maxDailyTrades').value);
             config.maxDailyLoss = parseFloat(document.getElementById('maxDailyLoss').value);
             
@@ -738,6 +767,8 @@
                     sizingText = `Fixed: ${config.quantity} contracts`;
                 } else if (config.sizingMethod === 'multiplier') {
                     sizingText = `${config.multiplier}x signal quantity`;
+                } else if (config.sizingMethod === 'proportional') {
+                    sizingText = `Proportional (coach: $${config.coachBalance.toLocaleString()})`;
                 } else {
                     sizingText = `${config.percentage}% of account`;
                 }
