@@ -1,13 +1,17 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
 const TastytradeClient = require('@tastytrade/api').default;
+const PositionSizer = require('./PositionSizer');
 
 /**
  * Fill Follower Bot
  * Listens to Discord fill notifications and places matching orders
- * 
+ *
  * ENVIRONMENT TOGGLE:
  * Comment/uncomment the appropriate line below to switch between sandbox and production
+ *
+ * POSITION SIZING:
+ * Supports 'proportional' sizing to mirror coach's position as % of account
  */
 
 // ============================================================================
@@ -59,30 +63,51 @@ class FillFollowerBot {
       // Discord settings
       discordToken: process.env.DISCORD_BOT_TOKEN,
       fillsChannelId: process.env.FILLS_CHANNEL_ID,
-      
+
       // Tastytrade settings (use FOLLOWER_ vars, fallback to TASTYTRADE_ vars)
       accountNumber: process.env.FOLLOWER_ACCOUNT_NUMBER || process.env.TASTYTRADE_ACCOUNT_NUMBER,
       username: process.env.FOLLOWER_USERNAME || process.env.TASTYTRADE_USERNAME,
       password: process.env.FOLLOWER_PASSWORD || process.env.TASTYTRADE_PASSWORD,
-      
-      // Position sizing
-      sizingMethod: process.env.SIZING_METHOD || 'fixed', // 'fixed', 'match', 'percentage'
+
+      // Position sizing - supports: 'fixed', 'match', 'percentage', 'proportional'
+      sizingMethod: process.env.SIZING_METHOD || 'fixed',
       fixedQuantity: parseInt(process.env.FIXED_QUANTITY) || 1,
       percentageOfFill: parseFloat(process.env.PERCENTAGE_OF_FILL) || 100,
       maxQuantity: parseInt(process.env.MAX_QUANTITY) || 10,
-      
+      minQuantity: parseInt(process.env.MIN_QUANTITY) || 1,
+
+      // Proportional sizing settings (for sizingMethod: 'proportional')
+      // Coach's account balance - required for proportional sizing
+      coachAccountBalance: parseFloat(process.env.COACH_ACCOUNT_BALANCE) || 0,
+      // How often to refresh balances (ms) - default 1 minute
+      balanceCacheTTL: parseInt(process.env.BALANCE_CACHE_TTL) || 60000,
+
       // Safety limits
       maxDailyTrades: parseInt(process.env.MAX_DAILY_TRADES) || 20,
       maxDailyLoss: parseFloat(process.env.MAX_DAILY_LOSS) || 500,
-      
+
       // Filters
-      enabledSymbols: process.env.ENABLED_SYMBOLS 
+      enabledSymbols: process.env.ENABLED_SYMBOLS
         ? process.env.ENABLED_SYMBOLS.split(',').map(s => s.trim().toUpperCase())
         : null, // null = all symbols
       enabledActions: process.env.ENABLED_ACTIONS
         ? process.env.ENABLED_ACTIONS.split(',').map(s => s.trim())
         : ['Buy to Open', 'Sell to Close', 'Buy to Close', 'Sell to Open']
     };
+
+    // Initialize position sizer for proportional sizing
+    this.positionSizer = null;
+    if (this.config.sizingMethod === 'proportional') {
+      this.positionSizer = new PositionSizer({
+        sizingMethod: 'proportional',
+        tastytradeAccountNumber: this.config.accountNumber,
+        tastytradeUsername: this.config.username,
+        tastytradePassword: this.config.password,
+        minQuantity: this.config.minQuantity,
+        maxQuantity: this.config.maxQuantity,
+        balanceCacheTTL: this.config.balanceCacheTTL
+      });
+    }
 
     // State tracking
     this.tradesExecutedToday = 0;
@@ -104,21 +129,91 @@ class FillFollowerBot {
     // Connect to Tastytrade
     await this.connectTastytrade();
 
+    // Initialize proportional sizing if enabled
+    if (this.config.sizingMethod === 'proportional') {
+      await this.initializeProportionalSizing();
+    }
+
     // Connect to Discord
     await this.connectDiscord();
 
     // Setup message listener
     this.setupMessageListener();
 
+    // Start balance refresh interval for proportional sizing
+    if (this.config.sizingMethod === 'proportional') {
+      this.startBalanceRefreshInterval();
+    }
+
     console.log('\n✅ Fill Follower Bot is running!');
     console.log(`📡 Listening to channel: ${this.config.fillsChannelId}`);
     console.log(`💼 Trading on account: ${this.config.accountNumber}`);
     console.log(`🔧 Environment: ${TASTYTRADE_ENV.toUpperCase()}`);
     console.log(`📊 Sizing method: ${this.config.sizingMethod}`);
+    if (this.config.sizingMethod === 'proportional' && this.positionSizer) {
+      const info = this.positionSizer.getSizingInfo();
+      console.log(`   Coach balance: $${info.coachBalance?.toLocaleString() || 'N/A'}`);
+      console.log(`   Follower balance: $${info.followerBalance?.toLocaleString() || 'N/A'}`);
+      console.log(`   Ratio: ${info.ratio?.toFixed(4) || 'N/A'}`);
+    }
     if (this.config.enabledSymbols) {
       console.log(`🎯 Enabled symbols: ${this.config.enabledSymbols.join(', ')}`);
     }
     console.log('');
+  }
+
+  /**
+   * Initialize proportional sizing with coach's account balance
+   */
+  async initializeProportionalSizing() {
+    if (!this.positionSizer) return;
+
+    const coachBalance = this.config.coachAccountBalance;
+
+    if (!coachBalance || coachBalance <= 0) {
+      console.error('❌ COACH_ACCOUNT_BALANCE is required for proportional sizing');
+      console.error('   Set COACH_ACCOUNT_BALANCE in your .env file');
+      console.error('   Example: COACH_ACCOUNT_BALANCE=500000');
+      process.exit(1);
+    }
+
+    try {
+      await this.positionSizer.initializeProportionalSizing(coachBalance);
+    } catch (error) {
+      console.error('❌ Failed to initialize proportional sizing:', error.message);
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Start periodic balance refresh for proportional sizing
+   * Refreshes follower balance every balanceCacheTTL ms (default 1 min)
+   */
+  startBalanceRefreshInterval() {
+    if (!this.positionSizer) return;
+
+    const interval = this.config.balanceCacheTTL || 60000;
+
+    this.balanceRefreshInterval = setInterval(async () => {
+      try {
+        await this.positionSizer.refreshFollowerBalance();
+      } catch (error) {
+        console.error('⚠️  Balance refresh failed:', error.message);
+      }
+    }, interval);
+
+    console.log(`📊 Balance refresh scheduled every ${interval / 1000}s`);
+  }
+
+  /**
+   * Update coach balance (call this when you receive coach account updates)
+   * Can be triggered by Discord messages with coach balance info
+   */
+  updateCoachBalance(newBalance) {
+    if (this.positionSizer && newBalance > 0) {
+      this.positionSizer.updateCoachBalance(newBalance);
+      console.log(`📊 Coach balance updated: $${newBalance.toLocaleString()}`);
+    }
   }
 
   /**
@@ -501,6 +596,7 @@ class FillFollowerBot {
 
   /**
    * Calculate quantity based on sizing method
+   * LOW LATENCY: 'proportional' method uses cached ratio (no network calls)
    */
   calculateQuantity(fill) {
     let quantity;
@@ -516,6 +612,17 @@ class FillFollowerBot {
         quantity = Math.round(fill.quantity * (this.config.percentageOfFill / 100));
         break;
 
+      case 'proportional':
+        // Use proportional sizing (mirrors coach's % of account)
+        // This is LOW LATENCY - uses pre-computed ratio, no network calls
+        if (this.positionSizer) {
+          quantity = this.positionSizer.calculateProportional(fill);
+        } else {
+          console.warn('⚠️  PositionSizer not initialized, falling back to match');
+          quantity = fill.quantity;
+        }
+        break;
+
       case 'fixed':
       default:
         // Use fixed quantity
@@ -525,12 +632,12 @@ class FillFollowerBot {
 
     // Apply max limit
     quantity = Math.min(quantity, this.config.maxQuantity);
-    
-    // Ensure at least 1
-    quantity = Math.max(quantity, 1);
+
+    // Ensure at least minQuantity
+    quantity = Math.max(quantity, this.config.minQuantity || 1);
 
     console.log(`📊 Position size: ${quantity} (method: ${this.config.sizingMethod})`);
-    
+
     return quantity;
   }
 
@@ -731,15 +838,23 @@ class FillFollowerBot {
    * Get bot statistics
    */
   getStats() {
-    return {
+    const stats = {
       environment: TASTYTRADE_ENV,
       tradesExecutedToday: this.tradesExecutedToday,
       maxDailyTrades: this.config.maxDailyTrades,
       lossToday: this.lossToday,
       maxDailyLoss: this.config.maxDailyLoss,
       processedFillsCount: this.processedFills.size,
-      isConnected: this.isConnected
+      isConnected: this.isConnected,
+      sizingMethod: this.config.sizingMethod
     };
+
+    // Add proportional sizing info if enabled
+    if (this.positionSizer) {
+      stats.proportionalSizing = this.positionSizer.getSizingInfo();
+    }
+
+    return stats;
   }
 
   /**
@@ -747,11 +862,16 @@ class FillFollowerBot {
    */
   async shutdown() {
     console.log('\n🛑 Shutting down Fill Follower Bot...');
-    
+
+    // Clear balance refresh interval
+    if (this.balanceRefreshInterval) {
+      clearInterval(this.balanceRefreshInterval);
+    }
+
     if (this.discord) {
       await this.discord.destroy();
     }
-    
+
     console.log('👋 Goodbye!');
   }
 }
