@@ -111,11 +111,238 @@
             background: #e0e0e0;
             color: #333;
         }
-        
+
         .button-secondary:hover {
             background: #d0d0d0;
         }
-        
+
+        /* Position Sizing Card Styles */
+        .sizing-section {
+            margin-bottom: 28px;
+        }
+
+        .option-card {
+            border: 2px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .option-card:hover {
+            border-color: #c5c5c5;
+        }
+
+        .option-card.selected {
+            border-color: #667eea;
+            background: #f8f8ff;
+        }
+
+        .option-card.selected .option-toggle {
+            background: #667eea;
+        }
+
+        .option-card.selected .option-toggle::after {
+            transform: translateX(18px);
+        }
+
+        .option-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .option-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .option-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .default-badge {
+            background: #22c55e;
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .option-toggle {
+            width: 44px;
+            height: 26px;
+            background: #d1d5db;
+            border-radius: 13px;
+            position: relative;
+            transition: background 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .option-toggle::after {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .option-description {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .option-example {
+            font-size: 12px;
+            color: #888;
+            background: #f5f5f5;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .option-example strong {
+            color: #666;
+        }
+
+        .option-settings {
+            display: none;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #eee;
+        }
+
+        .option-card.selected .option-settings {
+            display: block;
+        }
+
+        .setting-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #444;
+            margin-bottom: 8px;
+        }
+
+        .percentage-pills {
+            display: flex;
+            gap: 8px;
+        }
+
+        .pill {
+            flex: 1;
+            padding: 12px 8px;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 600;
+            color: #444;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: white;
+        }
+
+        .pill:hover {
+            border-color: #c5c5c5;
+        }
+
+        .pill.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .safety-section {
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid #eee;
+        }
+
+        .safety-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .safety-icon {
+            font-size: 18px;
+        }
+
+        .safety-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .safety-field {
+            margin-bottom: 8px;
+        }
+
+        .safety-field label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #444;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .input-with-prefix {
+            position: relative;
+        }
+
+        .input-with-prefix .prefix {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .input-with-prefix input {
+            padding-left: 32px;
+        }
+
+        .safety-hint {
+            font-size: 12px;
+            color: #888;
+            margin-top: 6px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            font-size: 16px;
+            color: #1a1a1a;
+            transition: border-color 0.2s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
         .status {
             padding: 12px;
             border-radius: 6px;
@@ -412,65 +639,97 @@
         <!-- Step 3: Position Sizing -->
         <div class="step" data-step="3">
             <h2>Step 3: Position Sizing</h2>
-            
-            <div class="form-group">
-                <label>Position Sizing Method</label>
-                <select id="sizingMethod" onchange="updateSizingInputs()">
-                    <option value="fixed">Fixed Quantity</option>
-                    <option value="multiplier">Signal Multiplier</option>
-                    <option value="percentage">Account Percentage</option>
-                    <option value="proportional">Proportional to Coach</option>
-                </select>
-            </div>
-            
-            <div class="form-group" id="fixedInput">
-                <label>Fixed Quantity</label>
-                <input type="number" id="fixedQuantity" value="1" min="1">
-                <p class="help-text">Always trade this many contracts/shares</p>
-            </div>
-            
-            <div class="form-group" id="multiplierInput" style="display:none;">
-                <label>Multiplier</label>
-                <input type="number" id="multiplier" value="1" min="0.1" max="10" step="0.1">
-                <p class="help-text">
-                    If signal says "Buy 10", you'll trade 10 × multiplier
-                </p>
-            </div>
-            
-            <div class="form-group" id="percentageInput" style="display:none;">
-                <label>Account Percentage (%)</label>
-                <input type="number" id="percentage" value="5" min="1" max="50">
-                <p class="help-text">Use X% of buying power per trade</p>
-            </div>
+            <p class="subtitle">Choose how your trades are sized</p>
 
-            <div class="form-group" id="proportionalInput" style="display:none;">
-                <label>Coach Account Balance ($)</label>
-                <input type="number" id="coachBalance" value="100000" min="1000" step="1000">
-                <p class="help-text">
-                    Your position size = Coach's size × (Your balance / Coach balance)<br>
-                    Example: Coach trades 10 contracts with $100k, you have $25k → you trade 2-3 contracts
-                </p>
-            </div>
+            <!-- Sizing Options -->
+            <div class="sizing-section">
 
-            <div class="form-group" id="proportionalLimits" style="display:none;">
-                <label>Min / Max Contracts</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="number" id="minQuantity" value="1" min="1" max="10" style="flex:1;" placeholder="Min">
-                    <input type="number" id="maxQuantity" value="100" min="1" max="500" style="flex:1;" placeholder="Max">
+                <!-- Option 1: Percentage of Account (Default) -->
+                <div class="option-card selected" data-sizing="percentage" onclick="selectSizingOption(this, 'percentage')">
+                    <div class="option-header">
+                        <div>
+                            <div class="option-title-row">
+                                <span class="option-title">Percentage of Account</span>
+                                <span class="default-badge">Default</span>
+                            </div>
+                        </div>
+                        <div class="option-toggle"></div>
+                    </div>
+                    <p class="option-description">Risk a percentage of your account on each trade. Scales automatically as your account grows.</p>
+                    <div class="option-example">
+                        <strong>Example:</strong> With $25,000 account at 2% risk → Max $500 per trade
+                    </div>
+                    <div class="option-settings">
+                        <div class="setting-label">Risk per trade</div>
+                        <div class="percentage-pills">
+                            <div class="pill" data-value="1" onclick="event.stopPropagation(); selectPill(this)">1%</div>
+                            <div class="pill selected" data-value="2" onclick="event.stopPropagation(); selectPill(this)">2%</div>
+                            <div class="pill" data-value="3" onclick="event.stopPropagation(); selectPill(this)">3%</div>
+                            <div class="pill" data-value="5" onclick="event.stopPropagation(); selectPill(this)">5%</div>
+                        </div>
+                    </div>
                 </div>
-                <p class="help-text">Minimum and maximum contracts per trade</p>
+
+                <!-- Option 2: Proportional to Coach -->
+                <div class="option-card" data-sizing="proportional" onclick="selectSizingOption(this, 'proportional')">
+                    <div class="option-header">
+                        <div>
+                            <div class="option-title-row">
+                                <span class="option-title">Proportional to Coach</span>
+                            </div>
+                        </div>
+                        <div class="option-toggle"></div>
+                    </div>
+                    <p class="option-description">Mirror the coach's position as a percentage of your account. Fully automatic.</p>
+                    <div class="option-example">
+                        <strong>Example:</strong> Coach trades 10 contracts with $100k → You trade 2-3 with $25k
+                    </div>
+                    <div class="option-settings">
+                        <div class="setting-label">Coach Account Balance ($)</div>
+                        <input type="number" class="input-field" id="coachBalance" value="100000" min="1000" step="1000" onclick="event.stopPropagation()">
+                        <p class="safety-hint">Position sizes calculated automatically based on your account balance</p>
+                    </div>
+                </div>
+
+                <!-- Option 3: Fixed Contracts -->
+                <div class="option-card" data-sizing="fixed" onclick="selectSizingOption(this, 'fixed')">
+                    <div class="option-header">
+                        <div>
+                            <div class="option-title-row">
+                                <span class="option-title">Fixed Contracts</span>
+                            </div>
+                        </div>
+                        <div class="option-toggle"></div>
+                    </div>
+                    <p class="option-description">Trade the same number of contracts on every trade, regardless of account size.</p>
+                    <div class="option-example">
+                        <strong>Example:</strong> Always trade exactly 2 contracts per signal
+                    </div>
+                    <div class="option-settings">
+                        <div class="setting-label">Contracts per trade</div>
+                        <input type="number" class="input-field" id="fixedQuantity" value="2" min="1" max="100" onclick="event.stopPropagation()">
+                    </div>
+                </div>
+
             </div>
 
-            <div class="form-group">
-                <label>Max Daily Trades</label>
-                <input type="number" id="maxDailyTrades" value="10" min="1">
+            <!-- Safety Limits -->
+            <div class="safety-section">
+                <div class="safety-header">
+                    <span class="safety-icon">🛡️</span>
+                    <span class="safety-title">Safety Limits</span>
+                </div>
+
+                <div class="safety-field">
+                    <label>Max Daily Loss</label>
+                    <div class="input-with-prefix">
+                        <span class="prefix">$</span>
+                        <input type="number" class="input-field" id="maxDailyLoss" value="500" min="100" step="100">
+                    </div>
+                    <p class="safety-hint">Trading stops for the day if losses reach this amount</p>
+                </div>
             </div>
-            
-            <div class="form-group">
-                <label>Max Daily Loss ($)</label>
-                <input type="number" id="maxDailyLoss" value="1000" min="100" step="100">
-            </div>
-            
+
             <div class="button-group">
                 <button class="button-secondary" onclick="prevStep()">← Back</button>
                 <button onclick="saveConfiguration()">🚀 Start Bot</button>
@@ -699,32 +958,46 @@
             nextStep();
         }
         
-        function updateSizingInputs() {
-            const method = document.getElementById('sizingMethod').value;
+        // Position sizing card selection
+        let selectedSizingMethod = 'percentage'; // Default
 
-            document.getElementById('fixedInput').style.display =
-                method === 'fixed' ? 'block' : 'none';
-            document.getElementById('multiplierInput').style.display =
-                method === 'multiplier' ? 'block' : 'none';
-            document.getElementById('percentageInput').style.display =
-                method === 'percentage' ? 'block' : 'none';
-            document.getElementById('proportionalInput').style.display =
-                method === 'proportional' ? 'block' : 'none';
-            document.getElementById('proportionalLimits').style.display =
-                method === 'proportional' ? 'block' : 'none';
+        function selectSizingOption(card, method) {
+            // Deselect all cards
+            document.querySelectorAll('.option-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+            // Select clicked card
+            card.classList.add('selected');
+            selectedSizingMethod = method;
         }
-        
+
+        function selectPill(pill) {
+            // Deselect all pills in same group
+            pill.parentElement.querySelectorAll('.pill').forEach(p => {
+                p.classList.remove('selected');
+            });
+            // Select clicked pill
+            pill.classList.add('selected');
+        }
+
+        function getSelectedPercentage() {
+            const selectedPill = document.querySelector('.percentage-pills .pill.selected');
+            return selectedPill ? parseInt(selectedPill.dataset.value) : 2;
+        }
+
         async function saveConfiguration() {
-            // Collect all configuration
-            config.sizingMethod = document.getElementById('sizingMethod').value;
-            config.quantity = parseInt(document.getElementById('fixedQuantity').value);
-            config.multiplier = parseFloat(document.getElementById('multiplier').value);
-            config.percentage = parseInt(document.getElementById('percentage').value);
-            config.coachBalance = parseFloat(document.getElementById('coachBalance').value);
-            config.minQuantity = parseInt(document.getElementById('minQuantity').value);
-            config.maxQuantity = parseInt(document.getElementById('maxQuantity').value);
-            config.maxDailyTrades = parseInt(document.getElementById('maxDailyTrades').value);
-            config.maxDailyLoss = parseFloat(document.getElementById('maxDailyLoss').value);
+            // Collect sizing configuration based on selected card
+            config.sizingMethod = selectedSizingMethod;
+
+            if (selectedSizingMethod === 'percentage') {
+                config.percentage = getSelectedPercentage();
+            } else if (selectedSizingMethod === 'proportional') {
+                config.coachBalance = parseFloat(document.getElementById('coachBalance').value) || 100000;
+            } else if (selectedSizingMethod === 'fixed') {
+                config.quantity = parseInt(document.getElementById('fixedQuantity').value) || 2;
+            }
+
+            config.maxDailyLoss = parseFloat(document.getElementById('maxDailyLoss').value) || 500;
             
             try {
                 showStatus('Saving configuration...', 'success');
