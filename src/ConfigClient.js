@@ -294,15 +294,52 @@ class ConfigClient {
         message: 'Not authenticated with central server'
       };
     }
-    
+
     if (this.tradingStatus.canTrade) {
       return null;
     }
-    
+
     return {
       reason: this.tradingStatus.reason,
       message: this.tradingStatus.message
     };
+  }
+
+  /**
+   * Get coach account balance from central server
+   * Used for proportional position sizing
+   *
+   * @returns {number} Coach balance or 0 if not available
+   */
+  async getCoachBalance() {
+    if (!this.sessionToken) {
+      throw new Error('Not authenticated - call authenticate() first');
+    }
+
+    try {
+      const response = await axios.get(
+        `${this.serverUrl}/api/v1/bot/coach-balance`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.sessionToken}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 5000
+        }
+      );
+
+      if (response.data.success && response.data.coachBalance) {
+        return response.data.coachBalance;
+      }
+
+      return 0;
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.warn('⚠️  Coach balance not configured on central server');
+        return 0;
+      }
+      throw error;
+    }
   }
 }
 

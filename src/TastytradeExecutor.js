@@ -104,13 +104,34 @@ class TastytradeExecutor {
   /**
    * Initialize proportional position sizing
    * Queries follower balance and computes ratio with coach balance
+   * Coach balance is fetched from central server if connected
    */
   async initializeProportionalSizing() {
-    const coachBalance = this.config.coachBalance || parseFloat(process.env.COACH_ACCOUNT_BALANCE) || 0;
+    let coachBalance = 0;
+
+    // Try to fetch coach balance from central server first
+    if (this.configClient) {
+      try {
+        coachBalance = await this.configClient.getCoachBalance();
+        if (coachBalance > 0) {
+          console.log(`📊 Coach balance from central server: $${coachBalance.toLocaleString()}`);
+        }
+      } catch (error) {
+        console.warn('⚠️  Failed to fetch coach balance from central server:', error.message);
+      }
+    }
+
+    // Fall back to local config if central server didn't provide balance
+    if (!coachBalance || coachBalance <= 0) {
+      coachBalance = this.config.coachBalance || parseFloat(process.env.COACH_ACCOUNT_BALANCE) || 0;
+      if (coachBalance > 0) {
+        console.log(`📊 Coach balance from local config: $${coachBalance.toLocaleString()}`);
+      }
+    }
 
     if (!coachBalance || coachBalance <= 0) {
       console.warn('⚠️  Coach balance not configured for proportional sizing');
-      console.warn('   Set coachBalance in config or COACH_ACCOUNT_BALANCE env var');
+      console.warn('   Admin should set coach balance on central server');
       console.warn('   Falling back to fixed quantity sizing');
       this.config.sizingMethod = 'fixed';
       return;

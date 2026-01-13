@@ -685,9 +685,7 @@
                         <strong>Example:</strong> Coach trades 10 contracts with $100k → You trade 2-3 with $25k
                     </div>
                     <div class="option-settings">
-                        <div class="setting-label">Coach Account Balance ($)</div>
-                        <input type="number" class="input-field" id="coachBalance" value="100000" min="1000" step="1000" onclick="event.stopPropagation()">
-                        <p class="safety-hint">Position sizes calculated automatically based on your account balance</p>
+                        <p style="font-size: 13px; color: #666;">No configuration needed. Position sizes are calculated automatically based on your account balance.</p>
                     </div>
                 </div>
 
@@ -991,11 +989,10 @@
 
             if (selectedSizingMethod === 'percentage') {
                 config.percentage = getSelectedPercentage();
-            } else if (selectedSizingMethod === 'proportional') {
-                config.coachBalance = parseFloat(document.getElementById('coachBalance').value) || 100000;
             } else if (selectedSizingMethod === 'fixed') {
                 config.quantity = parseInt(document.getElementById('fixedQuantity').value) || 2;
             }
+            // proportional: no config needed - coach balance comes from central server
 
             config.maxDailyLoss = parseFloat(document.getElementById('maxDailyLoss').value) || 500;
             
