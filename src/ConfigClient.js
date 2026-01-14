@@ -21,6 +21,8 @@ class ConfigClient {
     this.sessionToken = null;
     this.botId = null;  // Will be set after authentication
     this.tradingStatus = null;
+    this.heartbeatInterval = null;
+    this.startTime = Date.now();
 
     console.log(`🔗 ConfigClient initialized: ${this.serverUrl}`);
     if (this.deploymentId) {
@@ -339,6 +341,79 @@ class ConfigClient {
         return 0;
       }
       throw error;
+    }
+  }
+
+  /**
+   * Send a heartbeat to the central server
+   * Updates last_connected timestamp and optionally sends metrics
+   *
+   * @param {object} metrics - Optional health metrics
+   * @param {number} metrics.cpu - CPU usage percent
+   * @param {number} metrics.memory - Memory usage in MB
+   * @param {number} metrics.tradesToday - Number of trades executed today
+   */
+  async sendHeartbeat(metrics = {}) {
+    if (!this.sessionToken) {
+      return; // Silently skip if not authenticated
+    }
+
+    try {
+      await axios.post(
+        `${this.serverUrl}/api/v1/bot/heartbeat`,
+        {
+          deploymentId: this.deploymentId,
+          metrics: {
+            ...metrics,
+            uptime: Math.floor((Date.now() - this.startTime) / 1000)
+          }
+        },
+        {
+          timeout: 5000,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.sessionToken}`
+          }
+        }
+      );
+    } catch (error) {
+      // Silent failure - don't spam logs for heartbeat failures
+      // The server will detect missed heartbeats
+    }
+  }
+
+  /**
+   * Start periodic heartbeat (call after authentication)
+   * Default interval: 60 seconds
+   *
+   * @param {number} intervalMs - Heartbeat interval in milliseconds (default 60000)
+   * @param {function} metricsCallback - Optional callback to get current metrics
+   */
+  startHeartbeat(intervalMs = 60000, metricsCallback = null) {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
+
+    // Send initial heartbeat
+    this.sendHeartbeat(metricsCallback ? metricsCallback() : {});
+
+    // Schedule periodic heartbeats
+    this.heartbeatInterval = setInterval(() => {
+      const metrics = metricsCallback ? metricsCallback() : {};
+      this.sendHeartbeat(metrics);
+    }, intervalMs);
+
+    console.log(`💓 Heartbeat started (every ${intervalMs / 1000}s)`);
+  }
+
+  /**
+   * Stop periodic heartbeat (call on shutdown)
+   */
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+      console.log('💔 Heartbeat stopped');
     }
   }
 }

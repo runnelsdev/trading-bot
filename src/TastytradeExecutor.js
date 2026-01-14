@@ -89,6 +89,13 @@ class TastytradeExecutor {
       try {
         await this.configClient.authenticate(process.env.CENTRAL_DISCORD_USER_ID);
         console.log('✅ Central Server connected');
+
+        // Start heartbeat with metrics callback
+        this.configClient.startHeartbeat(60000, () => ({
+          tradesToday: this.tradesExecutedToday,
+          cpu: process.cpuUsage ? process.cpuUsage().user / 1000000 : null,
+          memory: process.memoryUsage ? Math.round(process.memoryUsage().heapUsed / 1024 / 1024) : null
+        }));
       } catch (error) {
         console.warn('⚠️  Central Server connection failed:', error.message);
         console.warn('   Trading will continue without tier validation');
