@@ -152,23 +152,40 @@ class TradingBroadcaster {
   }
 
   /**
+   * Extract the trading symbol from an order
+   * Prefers option symbol from legs over underlying symbol
+   */
+  extractSymbolFromOrder(order) {
+    // First, try to get the option symbol from legs
+    if (order.legs && order.legs.length > 0) {
+      const legSymbol = order.legs[0].symbol;
+      // Option symbols have spaces and are longer (e.g., "SPY   260129P00691000")
+      if (legSymbol && legSymbol.length > 10) {
+        return legSymbol;
+      }
+    }
+    // Fall back to underlying symbol for stock orders
+    return order['underlying-symbol'] || order.symbol;
+  }
+
+  /**
    * Extract fill data from streamer message
    */
   extractFillData(message) {
     // Parse Tastytrade streamer message format
     // Handle multiple possible message structures
-    
+
     // Structure 1: message.data.order
     if (message.data && message.data.order) {
       const order = message.data.order;
-      
+
       // Check if order was filled
       if (order.status === 'Filled' || order.status === 'Partially Filled') {
         return {
           type: 'fill',
           timestamp: new Date().toISOString(),
           orderId: order.id || order['order-id'],
-          symbol: order['underlying-symbol'] || order.symbol,
+          symbol: this.extractSymbolFromOrder(order),
           quantity: order.size || order.quantity || order['filled-quantity'],
           price: order.price || order['avg-fill-price'],
           status: order.status,
@@ -176,7 +193,7 @@ class TradingBroadcaster {
         };
       }
     }
-    
+
     // Structure 2: Direct order object
     if (message.order) {
       const order = message.order;
@@ -185,7 +202,7 @@ class TradingBroadcaster {
           type: 'fill',
           timestamp: new Date().toISOString(),
           orderId: order.id || order['order-id'],
-          symbol: order['underlying-symbol'] || order.symbol,
+          symbol: this.extractSymbolFromOrder(order),
           quantity: order.size || order.quantity || order['filled-quantity'],
           price: order.price || order['avg-fill-price'],
           status: order.status,
@@ -193,7 +210,7 @@ class TradingBroadcaster {
         };
       }
     }
-    
+
     // Structure 3: Message type-based (common in websocket APIs)
     if (message.type === 'Order' || message.type === 'order') {
       const order = message.data || message;
@@ -203,7 +220,7 @@ class TradingBroadcaster {
           type: 'fill',
           timestamp: new Date().toISOString(),
           orderId: order.id || order['order-id'],
-          symbol: order['underlying-symbol'] || order.symbol,
+          symbol: this.extractSymbolFromOrder(order),
           quantity: order.size || order.quantity || order['filled-quantity'],
           price: order.price || order['avg-fill-price'],
           status: status,
@@ -211,7 +228,7 @@ class TradingBroadcaster {
         };
       }
     }
-    
+
     // Structure 4: Account notification format
     if (message.action === 'order-updated' || message.action === 'order-filled') {
       const order = message.value || message.data || message;
@@ -219,14 +236,14 @@ class TradingBroadcaster {
         type: 'fill',
         timestamp: new Date().toISOString(),
         orderId: order.id || order['order-id'],
-        symbol: order['underlying-symbol'] || order.symbol,
+        symbol: this.extractSymbolFromOrder(order),
         quantity: order.size || order.quantity || order['filled-quantity'],
         price: order.price || order['avg-fill-price'],
         status: order.status || 'Filled',
         legs: order.legs || []
       };
     }
-    
+
     return null;
   }
 
