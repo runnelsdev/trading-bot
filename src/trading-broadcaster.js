@@ -1,4 +1,5 @@
 require('dotenv').config();
+const { EmbedBuilder } = require('discord.js');
 const TastytradeIntegration = require('./tastytrade-client');
 const OrderQueueManager = require('./order-queue');
 const LatencyMonitor = require('./latency-monitor');
@@ -295,6 +296,8 @@ class TradingBroadcaster {
 
   /**
    * Broadcast signal to Discord
+   * Fill notifications are sent as embeds (parseable by subscriber bots)
+   * Other signals are sent as plain text
    */
   async broadcastToDiscord(signal) {
     if (!this.discordClient) {
@@ -310,6 +313,18 @@ class TradingBroadcaster {
         process.env.BASIC_CHANNEL_ID
       ].filter(Boolean);
 
+      // Prepare message content based on signal type
+      let messagePayload;
+      if (signal.type === 'fill') {
+        // Send fills as embeds so subscriber bots can parse them
+        const embed = this.createFillEmbed(signal);
+        messagePayload = { embeds: [embed] };
+        console.log(`📤 Preparing fill embed for ${signal.symbol} x${signal.quantity}`);
+      } else {
+        // Other signals as plain text
+        messagePayload = this.formatSignalMessage(signal);
+      }
+
       if (channelIds.length === 0) {
         // Fallback to finding channel by name
         const channel = this.discordClient.channels.cache.find(
@@ -321,21 +336,17 @@ class TradingBroadcaster {
           return;
         }
 
-        const message = this.formatSignalMessage(signal);
-        await channel.send(message);
+        await channel.send(messagePayload);
         console.log('✅ Signal broadcasted to Discord (fallback channel)');
         return;
       }
 
-      // Format message based on signal type
-      const message = this.formatSignalMessage(signal);
-      
       // Send to all configured channels
       for (const channelId of channelIds) {
         try {
           const channel = await this.discordClient.channels.fetch(channelId);
           if (channel) {
-            await channel.send(message);
+            await channel.send(messagePayload);
             console.log(`✅ Signal broadcasted to channel ${channel.name || channelId}`);
           }
         } catch (channelError) {
@@ -348,24 +359,61 @@ class TradingBroadcaster {
   }
 
   /**
-   * Format signal message for Discord
+   * Format signal message for Discord (fallback for non-fill signals)
    */
   formatSignalMessage(signal) {
-    if (signal.type === 'fill') {
-      return `🎯 **Fill Notification**\n` +
-             `Symbol: ${signal.symbol}\n` +
-             `Quantity: ${signal.quantity}\n` +
-             `Price: $${signal.price}\n` +
-             `Status: ${signal.status}\n` +
-             `Time: ${new Date(signal.timestamp).toLocaleString()}`;
-    } else if (signal.type === 'order_complete') {
+    if (signal.type === 'order_complete') {
       return `✅ **Order Completed**\n` +
              `Order ID: ${signal.orderId}\n` +
              `Symbol: ${signal.orderData['underlying-symbol'] || 'N/A'}\n` +
              `Time: ${new Date(signal.timestamp).toLocaleString()}`;
     }
-    
+
     return `📊 Signal: ${JSON.stringify(signal, null, 2)}`;
+  }
+
+  /**
+   * Create Discord embed for fill notifications
+   * This format is parseable by subscriber bots' DiscordListener
+   */
+  createFillEmbed(signal) {
+    // Determine action based on legs or default to Buy
+    let action = 'Buy to Open';
+    if (signal.legs && signal.legs.length > 0) {
+      const leg = signal.legs[0];
+      action = leg.action || leg['action-type'] || 'Buy to Open';
+    }
+
+    // Determine color based on action
+    const isBuy = action.toLowerCase().includes('buy');
+    const color = isBuy ? 0x00FF00 : 0xFF4444; // Green for buy, red for sell
+
+    const embed = new EmbedBuilder()
+      .setTitle('🎯 Fill Notification')
+      .setColor(color)
+      .setTimestamp(new Date(signal.timestamp));
+
+    // Add fields that DiscordListener expects
+    embed.addFields(
+      { name: 'Symbol', value: signal.symbol || 'Unknown', inline: true },
+      { name: 'Action', value: action, inline: true },
+      { name: 'Quantity', value: String(signal.quantity || 1), inline: true }
+    );
+
+    // Add price if available
+    if (signal.price) {
+      embed.addFields({ name: 'Price', value: `$${signal.price}`, inline: true });
+    }
+
+    // Add status
+    embed.addFields({ name: 'Status', value: signal.status || 'Filled', inline: true });
+
+    // Add order ID in footer (DiscordListener can extract from here)
+    if (signal.orderId) {
+      embed.setFooter({ text: `Order ID: ${signal.orderId}` });
+    }
+
+    return embed;
   }
 
   /**
