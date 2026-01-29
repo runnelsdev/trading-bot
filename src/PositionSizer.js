@@ -76,8 +76,16 @@ class PositionSizer {
     this.cachedRatio = this.cachedFollowerBalance / this.cachedCoachBalance;
     this.balancesCachedAt = Date.now();
 
+    // Get min quantity (default 1)
+    const minQty = this.config.minQuantity !== undefined ? this.config.minQuantity : 1;
+
     console.log(`   Size ratio: ${this.cachedRatio.toFixed(4)} (follower/coach)`);
-    console.log(`   Example: Coach 10 contracts → Follower ${Math.round(10 * this.cachedRatio)} contracts`);
+    console.log(`   Min quantity: ${minQty} contract(s)`);
+
+    // Show example with minimum applied
+    const rawExample = Math.round(10 * this.cachedRatio);
+    const adjustedExample = Math.max(minQty, rawExample);
+    console.log(`   Example: Coach 10 contracts → Follower ${adjustedExample} contracts${rawExample < minQty ? ` (min ${minQty} applied)` : ''}`);
     console.log('✅ Proportional sizing initialized');
 
     return {
@@ -193,9 +201,10 @@ class PositionSizer {
 
       // Apply min/max limits
       let quantity = Math.round(rawQuantity);
+      const rawRounded = quantity;
 
       // Ensure at least minQuantity (default 1)
-      const minQty = this.config.minQuantity || 1;
+      const minQty = this.config.minQuantity !== undefined ? this.config.minQuantity : 1;
       quantity = Math.max(minQty, quantity);
 
       // Apply max limit if configured
@@ -203,8 +212,10 @@ class PositionSizer {
         quantity = Math.min(quantity, this.config.maxQuantity);
       }
 
-      // Log sizing decision (only if significant)
-      if (quantity !== coachQuantity) {
+      // Log sizing decision
+      if (rawRounded < minQty) {
+        console.log(`📊 Proportional: Coach ${coachQuantity} → Follower ${quantity} (min ${minQty} applied, raw: ${rawRounded})`);
+      } else if (quantity !== coachQuantity) {
         console.log(`📊 Proportional: Coach ${coachQuantity} → Follower ${quantity} (ratio: ${this.cachedRatio.toFixed(3)})`);
       }
 
