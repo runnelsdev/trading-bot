@@ -689,34 +689,6 @@
                     </div>
                 </div>
 
-                <!-- Option 3: Signal Multiplier -->
-                <div class="option-card" data-sizing="multiplier" onclick="selectSizingOption(this, 'multiplier')">
-                    <div class="option-header">
-                        <div>
-                            <div class="option-title-row">
-                                <span class="option-title">Signal Multiplier</span>
-                            </div>
-                        </div>
-                        <div class="option-toggle"></div>
-                    </div>
-                    <p class="option-description">Multiply the coach's signal quantity by a factor. Good for scaling up or down from the coach's exact trades.</p>
-                    <div class="option-example">
-                        <strong>Example:</strong> Coach signals 5 contracts × 2x multiplier = You trade 10 contracts
-                    </div>
-                    <div class="option-settings">
-                        <div class="setting-label">Multiplier</div>
-                        <div class="percentage-pills">
-                            <div class="pill" data-value="0.5" onclick="event.stopPropagation(); selectMultiplierPill(this)">0.5x</div>
-                            <div class="pill selected" data-value="1" onclick="event.stopPropagation(); selectMultiplierPill(this)">1x</div>
-                            <div class="pill" data-value="2" onclick="event.stopPropagation(); selectMultiplierPill(this)">2x</div>
-                            <div class="pill" data-value="3" onclick="event.stopPropagation(); selectMultiplierPill(this)">3x</div>
-                        </div>
-                        <div style="margin-top: 12px;">
-                            <div class="setting-label">Or enter custom multiplier:</div>
-                            <input type="number" class="input-field" id="customMultiplier" value="1" min="0.1" max="10" step="0.1" onclick="event.stopPropagation()" onchange="clearMultiplierPills()">
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Option 4: Fixed Contracts -->
                 <div class="option-card" data-sizing="fixed" onclick="selectSizingOption(this, 'fixed')">

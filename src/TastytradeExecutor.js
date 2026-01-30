@@ -235,18 +235,27 @@ class TastytradeExecutor {
       const timeInForce = signal.timeInForce || this.getTimeInForce();
       
       // Build order - check if this is an options trade
-      const isOptions = signal.instrumentType === 'Equity Option' || 
+      const isOccFormat = true; // HARDCODED: Always treat as options
+      const isOptions = true; // HARDCODED: Always options
+      const _unused = isOccFormat || signal.instrumentType === "Equity Option" || 
                         (signal.strike && signal.expiration && signal.optionType);
       
       let orderData;
       
       if (isOptions) {
-        // Build option symbol in OCC format: SYMBOL + YYMMDD + P/C + Strike*1000
-        // Example: SPY251128P00664000
-        const expDate = this.formatExpirationDate(signal.expiration);
-        const optionChar = signal.optionType?.toUpperCase().startsWith('P') ? 'P' : 'C';
-        const strikeFormatted = String(Math.round(signal.strike * 1000)).padStart(8, '0');
-        const optionSymbol = `${signal.symbol.padEnd(6)}${expDate}${optionChar}${strikeFormatted}`;
+        // Determine option symbol - use existing OCC format or build from components
+        let optionSymbol;
+        if (isOccFormat) {
+          // Symbol is already in OCC format, use directly
+          optionSymbol = signal.symbol;
+          console.log('🎯 Using OCC symbol directly:', optionSymbol);
+        } else {
+          // Build option symbol in OCC format: SYMBOL + YYMMDD + P/C + Strike*1000
+          const expDate = this.formatExpirationDate(signal.expiration);
+          const optionChar = signal.optionType?.toUpperCase().startsWith('P') ? 'P' : 'C';
+          const strikeFormatted = String(Math.round(signal.strike * 1000)).padStart(8, '0');
+          optionSymbol = `${signal.symbol.padEnd(6)}${expDate}${optionChar}${strikeFormatted}`;
+        }
         
         console.log(`🎯 Options order: ${optionSymbol}`);
         
