@@ -70,6 +70,9 @@ discordClient.once('clientReady', async () => {
       if (process.env.CENTRAL_DISCORD_USER_ID) {
         await configClient.authenticate(process.env.CENTRAL_DISCORD_USER_ID);
         console.log('✅ Central Server connected');
+
+        // Start heartbeat with central server
+        configClient.startHeartbeat(60000);
       }
     } catch (error) {
       console.warn('⚠️  Central Server connection failed:', error.message);
