@@ -320,14 +320,15 @@ class DiscordListener {
   normalizeAction(action) {
     const upper = action.toUpperCase();
     
-    if (upper.includes('BUY') || upper === 'BTO') {
+    // Check for CLOSE actions first (more specific)
+    if (upper.includes('BUY') && upper.includes('CLOSE') || upper === 'BTC') {
+      return 'Buy to Close';
+    } else if (upper.includes('SELL') && upper.includes('CLOSE') || upper === 'STC') {
+      return 'Sell to Close';
+    } else if (upper.includes('BUY') || upper === 'BTO') {
       return 'Buy to Open';
     } else if (upper.includes('SELL') || upper === 'STO') {
       return 'Sell to Open';
-    } else if (upper === 'BTC') {
-      return 'Buy to Close';
-    } else if (upper === 'STC') {
-      return 'Sell to Close';
     }
     
     return action;
@@ -347,6 +348,9 @@ class DiscordListener {
    */
   extractAction(text) {
     const upper = text.toUpperCase();
+    // Check for CLOSE actions first
+    if (upper.includes('BUY') && upper.includes('CLOSE')) return 'Buy to Close';
+    if (upper.includes('SELL') && upper.includes('CLOSE')) return 'Sell to Close';
     if (upper.includes('BUY')) return 'Buy to Open';
     if (upper.includes('SELL')) return 'Sell to Open';
     return null;
