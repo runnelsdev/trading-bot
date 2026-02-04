@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trading Bot Setup</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -20,7 +15,6 @@
             justify-content: center;
             padding: 20px;
         }
-        
         .container {
             background: white;
             border-radius: 12px;
@@ -29,36 +23,13 @@
             width: 100%;
             padding: 40px;
         }
-        
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-        
-        .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-        }
-        
-        .step {
-            display: none;
-        }
-        
-        .step.active {
-            display: block;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-        }
-        
+        h1 { color: #333; margin-bottom: 10px; }
+        h2 { color: #333; margin-bottom: 8px; }
+        .subtitle { color: #666; margin-bottom: 30px; }
+        .step { display: none; }
+        .step.active { display: block; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: 500; }
         input, select {
             width: 100%;
             padding: 12px;
@@ -67,18 +38,8 @@
             font-size: 14px;
             transition: border-color 0.3s;
         }
-        
-        input:focus, select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .help-text {
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
-        }
-        
+        input:focus, select:focus { outline: none; border-color: #667eea; }
+        .help-text { font-size: 12px; color: #666; margin-top: 5px; }
         button {
             background: #667eea;
             color: white;
@@ -91,223 +52,103 @@
             transition: background 0.3s;
             width: 100%;
         }
-        
-        button:hover {
-            background: #5568d3;
-        }
-        
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .button-secondary {
-            background: #e0e0e0;
-            color: #333;
-        }
+        button:hover { background: #5568d3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .button-group { display: flex; gap: 10px; margin-top: 20px; }
+        .button-secondary { background: #e0e0e0; color: #333; }
+        .button-secondary:hover { background: #d0d0d0; }
 
-        .button-secondary:hover {
-            background: #d0d0d0;
-        }
-
-        /* Position Sizing Card Styles */
-        .sizing-section {
-            margin-bottom: 28px;
-        }
-
+        /* Option Card Styles */
+        .sizing-section { margin-bottom: 24px; }
         .option-card {
             border: 2px solid #e5e5e5;
             border-radius: 12px;
-            padding: 16px;
+            padding: 20px;
             margin-bottom: 12px;
             cursor: pointer;
             transition: all 0.2s ease;
         }
-
-        .option-card:hover {
-            border-color: #c5c5c5;
-        }
-
-        .option-card.selected {
-            border-color: #667eea;
-            background: #f8f8ff;
-        }
-
-        .option-card.selected .option-toggle {
-            background: #667eea;
-        }
-
-        .option-card.selected .option-toggle::after {
-            transform: translateX(18px);
-        }
-
-        .option-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
-        }
-
-        .option-title-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .option-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #1a1a1a;
-        }
-
-        .default-badge {
+        .option-card:hover { border-color: #c5c5c5; }
+        .option-card.selected { border-color: #667eea; background: #f8f8ff; }
+        .option-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .option-title-row { display: flex; align-items: center; gap: 10px; }
+        .option-title { font-size: 17px; font-weight: 600; color: #1a1a1a; }
+        .recommended-badge {
             background: #22c55e;
             color: white;
             font-size: 10px;
             font-weight: 600;
-            padding: 3px 8px;
+            padding: 4px 10px;
             border-radius: 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-
-        .option-toggle {
-            width: 44px;
-            height: 26px;
-            background: #d1d5db;
-            border-radius: 13px;
-            position: relative;
-            transition: background 0.2s ease;
-            flex-shrink: 0;
-        }
-
-        .option-toggle::after {
-            content: '';
-            position: absolute;
+        .option-radio {
             width: 22px;
             height: 22px;
-            background: white;
+            border: 2px solid #d1d5db;
             border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: transform 0.2s ease;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            position: relative;
+            flex-shrink: 0;
         }
-
-        .option-description {
-            font-size: 13px;
-            color: #666;
-            line-height: 1.5;
-            margin-bottom: 12px;
+        .option-card.selected .option-radio { border-color: #667eea; }
+        .option-card.selected .option-radio::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #667eea;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
+        .option-description { font-size: 14px; color: #666; line-height: 1.5; margin-bottom: 12px; }
+        .option-example { font-size: 13px; color: #888; background: #f5f5f5; padding: 12px 14px; border-radius: 8px; }
+        .option-example strong { color: #555; }
+        .option-settings { display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
+        .option-card.selected .option-settings { display: block; }
+        .setting-label { font-size: 14px; font-weight: 500; color: #444; margin-bottom: 10px; }
 
-        .option-example {
-            font-size: 12px;
-            color: #888;
-            background: #f5f5f5;
-            padding: 10px 12px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-        }
-
-        .option-example strong {
-            color: #666;
-        }
-
-        .option-settings {
-            display: none;
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid #eee;
-        }
-
-        .option-card.selected .option-settings {
-            display: block;
-        }
-
-        .setting-label {
-            font-size: 13px;
-            font-weight: 500;
-            color: #444;
-            margin-bottom: 8px;
-        }
-
-        .percentage-pills {
-            display: flex;
-            gap: 8px;
-        }
-
+        /* Percentage Pills */
+        .percentage-pills { display: flex; gap: 8px; flex-wrap: wrap; }
         .pill {
             flex: 1;
-            padding: 12px 8px;
+            min-width: 60px;
+            padding: 14px 12px;
             border: 2px solid #e5e5e5;
             border-radius: 8px;
             text-align: center;
-            font-size: 15px;
+            font-size: 16px;
             font-weight: 600;
             color: #444;
             cursor: pointer;
             transition: all 0.2s ease;
             background: white;
         }
-
-        .pill:hover {
-            border-color: #c5c5c5;
-        }
-
-        .pill.selected {
-            border-color: #667eea;
-            background: #667eea;
-            color: white;
-        }
-
-        .safety-section {
-            margin-top: 28px;
-            padding-top: 24px;
-            border-top: 1px solid #eee;
-        }
-
-        .safety-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .safety-icon {
-            font-size: 18px;
-        }
-
-        .safety-title {
-            font-size: 13px;
+        .pill:hover { border-color: #c5c5c5; }
+        .pill.selected { border-color: #667eea; background: #667eea; color: white; }
+        .pill-custom { position: relative; min-width: 80px; }
+        .pill-custom .custom-label { display: block; }
+        .pill-custom .custom-input-wrap { display: none; align-items: center; justify-content: center; gap: 2px; }
+        .pill-custom.selected .custom-label { display: none; }
+        .pill-custom.selected .custom-input-wrap { display: flex; }
+        .pill-custom input {
+            width: 36px;
+            padding: 2px 4px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
             font-weight: 600;
-            color: #333;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            text-align: center;
+            background: rgba(255,255,255,0.9);
+            color: #667eea;
         }
+        .pill-custom input:focus { outline: none; background: white; }
+        .pill-custom.selected span { color: white; font-weight: 600; }
 
-        .safety-field {
-            margin-bottom: 8px;
-        }
-
-        .safety-field label {
-            font-size: 14px;
-            font-weight: 500;
-            color: #444;
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .input-with-prefix {
-            position: relative;
-        }
-
+        /* Input with prefix */
+        .input-with-prefix { position: relative; }
         .input-with-prefix .prefix {
             position: absolute;
             left: 16px;
@@ -317,17 +158,7 @@
             font-size: 16px;
             font-weight: 500;
         }
-
-        .input-with-prefix input {
-            padding-left: 32px;
-        }
-
-        .safety-hint {
-            font-size: 12px;
-            color: #888;
-            margin-top: 6px;
-        }
-
+        .input-with-prefix input { padding-left: 32px; }
         .input-field {
             width: 100%;
             padding: 14px 16px;
@@ -337,44 +168,50 @@
             color: #1a1a1a;
             transition: border-color 0.2s ease;
         }
+        .input-field:focus { outline: none; border-color: #667eea; }
 
-        .input-field:focus {
+        /* Slider */
+        .slider-container { margin-top: 12px; }
+        .slider-labels { display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-bottom: 8px; }
+        .slider-value { text-align: center; font-size: 20px; font-weight: 700; color: #667eea; margin-bottom: 8px; }
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(to right, #fbbf24 0%, #22c55e 50%, #ef4444 100%);
             outline: none;
-            border-color: #667eea;
+            -webkit-appearance: none;
+            padding: 0;
+            border: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         }
 
-        .status {
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .progress {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-        }
-        
-        .progress-step {
-            flex: 1;
-            text-align: center;
-            padding: 10px;
-            position: relative;
-        }
-        
+        /* Safety Section */
+        .safety-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid #eee; }
+        .safety-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+        .safety-icon { font-size: 18px; }
+        .safety-title { font-size: 13px; font-weight: 600; color: #333; text-transform: uppercase; letter-spacing: 0.5px; }
+        .safety-field { margin-bottom: 8px; }
+        .safety-field label { font-size: 14px; font-weight: 500; color: #444; display: block; margin-bottom: 8px; }
+        .safety-hint { font-size: 12px; color: #888; margin-top: 6px; }
+
+        /* Status */
+        .status { padding: 12px; border-radius: 6px; margin-bottom: 20px; display: none; }
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        /* Progress */
+        .progress { display: flex; justify-content: space-between; margin-bottom: 30px; }
+        .progress-step { flex: 1; text-align: center; padding: 10px; position: relative; }
         .progress-step::before {
             content: '';
             position: absolute;
@@ -385,16 +222,8 @@
             background: #e0e0e0;
             z-index: -1;
         }
-        
-        .progress-step:first-child::before {
-            left: 50%;
-            width: 50%;
-        }
-        
-        .progress-step:last-child::before {
-            width: 50%;
-        }
-        
+        .progress-step:first-child::before { left: 50%; width: 50%; }
+        .progress-step:last-child::before { width: 50%; }
         .progress-number {
             display: inline-block;
             width: 30px;
@@ -406,18 +235,11 @@
             font-weight: 600;
             margin-bottom: 5px;
         }
-        
-        .progress-step.active .progress-number {
-            background: #667eea;
-            color: white;
-        }
-        
-        .progress-step.completed .progress-number {
-            background: #28a745;
-            color: white;
-        }
-        
-        .account-card {
+        .progress-step.active .progress-number { background: #667eea; color: white; }
+        .progress-step.completed .progress-number { background: #28a745; color: white; }
+
+        /* Cards */
+        .account-card, .channel-option {
             border: 2px solid #e0e0e0;
             border-radius: 6px;
             padding: 15px;
@@ -425,34 +247,8 @@
             cursor: pointer;
             transition: all 0.3s;
         }
-        
-        .account-card:hover {
-            border-color: #667eea;
-        }
-        
-        .account-card.selected {
-            border-color: #667eea;
-            background: #f0f4ff;
-        }
-        
-        .channel-option {
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .channel-option:hover {
-            border-color: #667eea;
-        }
-        
-        .channel-option.selected {
-            border-color: #667eea;
-            background: #f0f4ff;
-        }
-        
+        .account-card:hover, .channel-option:hover { border-color: #667eea; }
+        .account-card.selected, .channel-option.selected { border-color: #667eea; background: #f0f4ff; }
         .channel-tier {
             display: inline-block;
             background: #667eea;
@@ -464,15 +260,7 @@
             margin-left: 10px;
         }
 
-        a {
-            color: #667eea;
-            text-decoration: none;
-        }
-
-        a:hover {
-            text-decoration: underline;
-        }
-
+        /* Reset Banner */
         .reset-banner {
             background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
             color: white;
@@ -481,94 +269,46 @@
             margin-bottom: 25px;
             display: none;
         }
-
-        .reset-banner h3 {
-            margin-bottom: 10px;
-        }
-
-        .reset-banner p {
-            opacity: 0.9;
-            margin-bottom: 15px;
-            font-size: 14px;
-        }
-
-        .button-danger {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: 2px solid white;
-        }
-
-        .button-danger:hover {
-            background: white;
-            color: #ee5a5a;
-        }
-
-        .current-config {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-
-        .current-config h4 {
-            margin-bottom: 10px;
-            color: #333;
-        }
-
-        .config-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 14px;
-        }
-
-        .config-item:last-child {
-            border-bottom: none;
-        }
-
-        .config-label {
-            color: #666;
-        }
-
-        .config-value {
-            font-weight: 500;
-            color: #333;
-        }
+        .reset-banner h3 { margin-bottom: 10px; }
+        .reset-banner p { opacity: 0.9; margin-bottom: 15px; font-size: 14px; }
+        .button-danger { background: rgba(255,255,255,0.2); color: white; border: 2px solid white; }
+        .button-danger:hover { background: white; color: #ee5a5a; }
+        .current-config { background: rgba(255,255,255,0.15); border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+        .current-config h4 { margin-bottom: 10px; color: white; }
+        .config-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.2); font-size: 14px; }
+        .config-item:last-child { border-bottom: none; }
+        .config-label { color: rgba(255,255,255,0.8); }
+        .config-value { font-weight: 500; color: white; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🤖 Trading Bot Setup</h1>
+        <h1>Trading Bot Setup</h1>
         <p class="subtitle">Configure your automated trading bot</p>
-        
-        <!-- Reset banner (shown when already configured) -->
+
+        <!-- Reset banner -->
         <div class="reset-banner" id="resetBanner">
-            <h3>⚠️ Bot Already Configured</h3>
-            <p>Your trading bot is currently configured and running. You can reset to reconfigure with different settings.</p>
-            <div class="current-config" style="background: rgba(255,255,255,0.15); color: white;">
-                <h4 style="color: white;">Current Configuration:</h4>
-                <div class="config-item" style="border-color: rgba(255,255,255,0.2);">
-                    <span class="config-label" style="color: rgba(255,255,255,0.8);">Account:</span>
-                    <span class="config-value" id="currentAccount" style="color: white;">-</span>
+            <h3>Bot Already Configured</h3>
+            <p>Your trading bot is currently configured and running.</p>
+            <div class="current-config">
+                <h4>Current Configuration:</h4>
+                <div class="config-item">
+                    <span class="config-label">Account:</span>
+                    <span class="config-value" id="currentAccount">-</span>
                 </div>
-                <div class="config-item" style="border-color: rgba(255,255,255,0.2);">
-                    <span class="config-label" style="color: rgba(255,255,255,0.8);">Channel:</span>
-                    <span class="config-value" id="currentChannel" style="color: white;">-</span>
+                <div class="config-item">
+                    <span class="config-label">Channel:</span>
+                    <span class="config-value" id="currentChannel">-</span>
                 </div>
-                <div class="config-item" style="border-color: rgba(255,255,255,0.2);">
-                    <span class="config-label" style="color: rgba(255,255,255,0.8);">Position Sizing:</span>
-                    <span class="config-value" id="currentSizing" style="color: white;">-</span>
-                </div>
-                <div class="config-item" style="border-bottom: none;">
-                    <span class="config-label" style="color: rgba(255,255,255,0.8);">Configured At:</span>
-                    <span class="config-value" id="currentDate" style="color: white;">-</span>
+                <div class="config-item">
+                    <span class="config-label">Position Sizing:</span>
+                    <span class="config-value" id="currentSizing">-</span>
                 </div>
             </div>
-            <button class="button-danger" onclick="resetConfiguration()">🔄 Reset Configuration</button>
+            <button class="button-danger" onclick="resetConfiguration()">Reset Configuration</button>
         </div>
-        
-        <!-- Progress indicator -->
+
+        <!-- Progress -->
         <div class="progress">
             <div class="progress-step active" data-step="1">
                 <div class="progress-number">1</div>
@@ -583,133 +323,137 @@
                 <div>Settings</div>
             </div>
         </div>
-        
+
         <div class="status" id="status"></div>
-        
-        <!-- Step 1: Tastytrade Connection -->
+
+        <!-- Step 1: Tastytrade -->
         <div class="step active" data-step="1">
             <h2>Step 1: Connect Tastytrade</h2>
-            <p class="help-text" style="margin-bottom: 20px;">
-                Note: Make sure DISCORD_BOT_TOKEN is set in your .env file before starting.
-            </p>
-            
+            <p class="help-text" style="margin-bottom: 20px;">Enter your Tastytrade credentials to connect your account.</p>
+
             <div class="form-group">
                 <label>Tastytrade Username *</label>
                 <input type="text" id="tastyUsername" placeholder="Your Tastytrade username">
             </div>
-            
+
             <div class="form-group">
                 <label>Tastytrade Password *</label>
                 <input type="password" id="tastyPassword" placeholder="Your Tastytrade password">
-                <p class="help-text">
-                    Your credentials are encrypted and stored only on YOUR server
-                </p>
+                <p class="help-text">Your credentials are encrypted and stored only on YOUR server</p>
             </div>
-            
+
             <div id="accountsList" style="margin-top: 20px; display: none;">
                 <h3>Select Account: *</h3>
-                <p class="help-text" style="margin-bottom: 10px; color: #d32f2f; display: none;" id="accountRequired">Please select an account to continue</p>
+                <p class="help-text" style="margin-bottom: 10px; color: #d32f2f; display: none;" id="accountRequired">Please select an account</p>
                 <div id="accounts"></div>
             </div>
-            
+
             <div class="button-group">
-                <button class="button-secondary" onclick="prevStep()">← Back</button>
+                <button class="button-secondary" style="visibility: hidden;">Back</button>
                 <button id="testButton" onclick="testTastytrade()">Test Connection</button>
-                <button id="continueButton" onclick="continueAfterAccount()" style="display: none;">Continue →</button>
+                <button id="continueButton" onclick="continueAfterAccount()" style="display: none;">Continue</button>
             </div>
         </div>
-        
-        <!-- Step 2: Select Channel -->
+
+        <!-- Step 2: Channel -->
         <div class="step" data-step="2">
             <h2>Step 2: Select Signal Channel</h2>
-            <p class="help-text" style="margin-bottom: 20px;">
-                Based on your subscription tier
-            </p>
-            
-            <div id="channelsList">
-                <!-- Populated dynamically -->
-            </div>
-            
+            <p class="help-text" style="margin-bottom: 20px;">Choose which channel to listen for trading signals</p>
+            <div id="channelsList"></div>
             <div class="button-group" style="margin-top: 20px;">
-                <button class="button-secondary" onclick="prevStep()">← Back</button>
-                <button onclick="selectChannel()">Next →</button>
+                <button class="button-secondary" onclick="prevStep()">Back</button>
+                <button onclick="selectChannel()">Next</button>
             </div>
         </div>
-        
-        <!-- Step 3: Position Sizing -->
+
+        <!-- Step 3: Position Sizing - THREE INDEPENDENT OPTIONS -->
         <div class="step" data-step="3">
             <h2>Step 3: Position Sizing</h2>
-            <p class="subtitle">Choose how your trades are sized</p>
+            <p class="subtitle">Choose ONE method for sizing your trades</p>
 
-            <!-- Sizing Options -->
             <div class="sizing-section">
-
-                <!-- Option 1: Percentage of Account (Default) -->
-                <div class="option-card selected" data-sizing="percentage" onclick="selectSizingOption(this, 'percentage')">
+                <!-- Option 1: Risk % per Trade -->
+                <div class="option-card selected" data-sizing="percentage" onclick="selectSizingMode('percentage')">
                     <div class="option-header">
-                        <div>
-                            <div class="option-title-row">
-                                <span class="option-title">Percentage of Account</span>
-                                <span class="default-badge">Default</span>
-                            </div>
+                        <div class="option-title-row">
+                            <span class="option-title">Risk % per Trade</span>
+                            <span class="recommended-badge">Recommended</span>
                         </div>
-                        <div class="option-toggle"></div>
+                        <div class="option-radio"></div>
                     </div>
                     <p class="option-description">Risk a percentage of your account on each trade. Scales automatically as your account grows.</p>
                     <div class="option-example">
-                        <strong>Example:</strong> With $25,000 account at 2% risk → Max $500 per trade
+                        <strong>Example:</strong> $25,000 account at 2% = $500 max per trade
                     </div>
                     <div class="option-settings">
-                        <div class="setting-label">Risk per trade</div>
+                        <div class="setting-label">Risk per trade (max 10%)</div>
                         <div class="percentage-pills">
-                            <div class="pill" data-value="1" onclick="event.stopPropagation(); selectPill(this)">1%</div>
-                            <div class="pill selected" data-value="2" onclick="event.stopPropagation(); selectPill(this)">2%</div>
-                            <div class="pill" data-value="3" onclick="event.stopPropagation(); selectPill(this)">3%</div>
-                            <div class="pill" data-value="5" onclick="event.stopPropagation(); selectPill(this)">5%</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Option 2: Proportional to Coach -->
-                <div class="option-card" data-sizing="proportional" onclick="selectSizingOption(this, 'proportional')">
-                    <div class="option-header">
-                        <div>
-                            <div class="option-title-row">
-                                <span class="option-title">Proportional to Coach</span>
+                            <div class="pill" data-value="1" onclick="event.stopPropagation(); selectPill(this, 1)">1%</div>
+                            <div class="pill selected" data-value="2" onclick="event.stopPropagation(); selectPill(this, 2)">2%</div>
+                            <div class="pill" data-value="3" onclick="event.stopPropagation(); selectPill(this, 3)">3%</div>
+                            <div class="pill" data-value="5" onclick="event.stopPropagation(); selectPill(this, 5)">5%</div>
+                            <div class="pill pill-custom" data-value="custom" onclick="event.stopPropagation(); selectCustomPill(this)">
+                                <span class="custom-label">Custom</span>
+                                <div class="custom-input-wrap">
+                                    <input type="number" id="customPercent" min="1" max="10" value="4"
+                                           onclick="event.stopPropagation();"
+                                           oninput="validateCustomPercent(this)">
+                                    <span>%</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="option-toggle"></div>
-                    </div>
-                    <p class="option-description">Mirror the coach's position as a percentage of your account. Fully automatic.</p>
-                    <div class="option-example">
-                        <strong>Example:</strong> Coach trades 10 contracts with $100k → You trade 2-3 with $25k
-                    </div>
-                    <div class="option-settings">
-                        <p style="font-size: 13px; color: #666;">No configuration needed. Position sizes are calculated automatically based on your account balance.</p>
                     </div>
                 </div>
 
-
-                <!-- Option 4: Fixed Contracts -->
-                <div class="option-card" data-sizing="fixed" onclick="selectSizingOption(this, 'fixed')">
+                <!-- Option 2: Fixed $ per Trade -->
+                <div class="option-card" data-sizing="fixed" onclick="selectSizingMode('fixed')">
                     <div class="option-header">
-                        <div>
-                            <div class="option-title-row">
-                                <span class="option-title">Fixed Contracts</span>
-                            </div>
+                        <div class="option-title-row">
+                            <span class="option-title">Fixed $ per Trade</span>
                         </div>
-                        <div class="option-toggle"></div>
+                        <div class="option-radio"></div>
                     </div>
-                    <p class="option-description">Trade the same number of contracts on every trade, regardless of account size.</p>
+                    <p class="option-description">Same dollar amount on every trade. Great for predictability and smaller accounts.</p>
                     <div class="option-example">
-                        <strong>Example:</strong> Always trade exactly 2 contracts per signal
+                        <strong>Example:</strong> Always risk up to $200 per trade
                     </div>
                     <div class="option-settings">
-                        <div class="setting-label">Contracts per trade</div>
-                        <input type="number" class="input-field" id="fixedQuantity" value="2" min="1" max="100" onclick="event.stopPropagation()">
+                        <div class="setting-label">Amount per trade</div>
+                        <div class="input-with-prefix">
+                            <span class="prefix">$</span>
+                            <input type="number" class="input-field" id="fixedDollar" value="200" min="50" max="10000" step="50"
+                                   onclick="event.stopPropagation()">
+                        </div>
                     </div>
                 </div>
 
+                <!-- Option 3: Follow Coach (Proportional) -->
+                <div class="option-card" data-sizing="proportional" onclick="selectSizingMode('proportional')">
+                    <div class="option-header">
+                        <div class="option-title-row">
+                            <span class="option-title">Follow Coach</span>
+                        </div>
+                        <div class="option-radio"></div>
+                    </div>
+                    <p class="option-description">Match the coach's position size proportionally based on your account size vs theirs.</p>
+                    <div class="option-example">
+                        <strong>Example:</strong> If coach has $100K and you have $25K, you trade 25% of their size
+                    </div>
+                    <div class="option-settings">
+                        <div class="slider-container">
+                            <div class="setting-label">Aggressiveness Multiplier</div>
+                            <div class="slider-labels">
+                                <span>Conservative (0.5x)</span>
+                                <span>Same (1.0x)</span>
+                                <span>Aggressive (1.5x)</span>
+                            </div>
+                            <div class="slider-value" id="multiplierValue">1.0x</div>
+                            <input type="range" id="coachMultiplier" min="0.5" max="1.5" step="0.1" value="1.0"
+                                   onclick="event.stopPropagation()"
+                                   oninput="updateMultiplierDisplay()">
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Safety Limits -->
@@ -718,7 +462,6 @@
                     <span class="safety-icon">🛡️</span>
                     <span class="safety-title">Safety Limits</span>
                 </div>
-
                 <div class="safety-field">
                     <label>Max Daily Loss</label>
                     <div class="input-with-prefix">
@@ -730,170 +473,184 @@
             </div>
 
             <div class="button-group">
-                <button class="button-secondary" onclick="prevStep()">← Back</button>
-                <button onclick="saveConfiguration()">🚀 Start Bot</button>
+                <button class="button-secondary" onclick="prevStep()">Back</button>
+                <button onclick="saveConfiguration()">Start Bot</button>
             </div>
         </div>
-        
-        <!-- Success Message -->
+
+        <!-- Step 4: Success -->
         <div class="step" data-step="4">
             <div style="text-align: center;">
-                <h2 style="color: #28a745; margin-bottom: 20px;">✅ Bot Configured!</h2>
-                <p style="margin-bottom: 20px;">
-                    Your trading bot is now running and listening for signals.
-                </p>
+                <h2 style="color: #28a745; margin-bottom: 20px;">Bot Configured!</h2>
+                <p style="margin-bottom: 20px;">Your trading bot is now running and listening for signals.</p>
                 <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
                     <p><strong>Listening to:</strong> <span id="finalChannel"></span></p>
                     <p><strong>Tastytrade Account:</strong> <span id="finalAccount"></span></p>
                     <p><strong>Position Sizing:</strong> <span id="finalSizing"></span></p>
                 </div>
                 <p style="font-size: 14px; color: #666;">
-                    Your bot will automatically execute trades when signals appear in your selected channel.
-                    You can close this window now.
+                    Your bot will automatically execute trades when signals appear. You can close this window.
                 </p>
             </div>
         </div>
     </div>
-    
+
     <script>
-        let config = {
+        // ============================================================
+        // STATE - Single source of truth
+        // ============================================================
+        const state = {
+            // Credentials
             tastytradeUsername: '',
             tastytradePassword: '',
             tastytradeAccountNumber: '',
+            // Channel
             channelId: '',
             channelName: '',
-            sizingMethod: 'fixed',
-            quantity: 1,
-            multiplier: 1,
-            percentage: 5,
-            coachBalance: 100000,
-            minQuantity: 1,
-            maxQuantity: 100,
-            maxDailyTrades: 10,
-            maxDailyLoss: 1000
+            // Sizing - THREE MUTUALLY EXCLUSIVE OPTIONS
+            sizingMode: 'percentage',  // 'percentage' | 'fixed' | 'proportional'
+            percentage: 2,
+            customPercentage: 4,
+            fixedAmount: 200,
+            coachMultiplier: 1.0,
+            // Safety
+            maxDailyLoss: 500
         };
-        
+
+        // Track previous values for history
+        let previousSettings = { ...state };
+
         let currentStep = 1;
         let availableChannels = [];
-        
+
+        // ============================================================
+        // SIZING MODE SELECTION - Mutually exclusive
+        // ============================================================
+        function selectSizingMode(mode) {
+            // Track change
+            previousSettings.sizingMode = state.sizingMode;
+            state.sizingMode = mode;
+
+            // Update UI - deselect all, select chosen
+            document.querySelectorAll('.option-card').forEach(card => {
+                card.classList.toggle('selected', card.dataset.sizing === mode);
+            });
+        }
+
+        function selectPill(pill, value) {
+            previousSettings.percentage = state.percentage;
+            state.percentage = value;
+
+            pill.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+            pill.classList.add('selected');
+        }
+
+        function selectCustomPill(pill) {
+            state.percentage = 'custom';
+            pill.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+            pill.classList.add('selected');
+            setTimeout(() => pill.querySelector('input')?.focus(), 50);
+        }
+
+        function validateCustomPercent(input) {
+            let value = input.value.replace(/[^0-9]/g, '');
+            let num = parseInt(value) || 1;
+            num = Math.max(1, Math.min(10, num));
+            input.value = num;
+            state.customPercentage = num;
+        }
+
+        function updateMultiplierDisplay() {
+            const slider = document.getElementById('coachMultiplier');
+            const value = parseFloat(slider.value);
+            document.getElementById('multiplierValue').textContent = value.toFixed(1) + 'x';
+            state.coachMultiplier = value;
+        }
+
+        function getEffectivePercentage() {
+            return state.percentage === 'custom' ? state.customPercentage : state.percentage;
+        }
+
+        // ============================================================
+        // STATUS & NAVIGATION
+        // ============================================================
         function showStatus(message, type) {
             const status = document.getElementById('status');
             status.textContent = message;
             status.className = `status ${type}`;
             status.style.display = 'block';
         }
-        
+
         function hideStatus() {
             document.getElementById('status').style.display = 'none';
         }
-        
-        async function loadChannels() {
-            try {
-                showStatus('Loading available channels...', 'success');
-                
-                const response = await fetch('/api/get-channels');
-                
-                if (!response.ok) {
-                    const text = await response.text();
-                    let errorMessage = `Server error (${response.status})`;
-                    try {
-                        const errorJson = JSON.parse(text);
-                        errorMessage = errorJson.error || errorMessage;
-                    } catch (e) {
-                        // If response is HTML, show generic error
-                        if (text.includes('<!DOCTYPE')) {
-                            errorMessage = `Server returned an error page. Check server logs.`;
-                        } else {
-                            errorMessage = text || errorMessage;
-                        }
-                    }
-                    throw new Error(errorMessage);
-                }
-                
-                const result = await response.json();
-                
-                if (!result.success) {
-                    throw new Error(result.error);
-                }
-                
-                availableChannels = result.channels;
-                
-                if (availableChannels.length === 0) {
-                    showStatus('No channels available. Check your subscription.', 'error');
-                    return false;
-                }
-                
-                return true;
-            } catch (error) {
-                showStatus('Error: ' + error.message, 'error');
-                return false;
+
+        function nextStep() {
+            hideStatus();
+            document.querySelector(`.step[data-step="${currentStep}"]`)?.classList.remove('active');
+            const progressCurrent = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
+            if (progressCurrent) {
+                progressCurrent.classList.add('completed');
+                progressCurrent.classList.remove('active');
+            }
+            currentStep++;
+            document.querySelector(`.step[data-step="${currentStep}"]`)?.classList.add('active');
+            document.querySelector(`.progress-step[data-step="${currentStep}"]`)?.classList.add('active');
+            if (currentStep === 2) renderChannels();
+        }
+
+        function prevStep() {
+            hideStatus();
+            document.querySelector(`.step[data-step="${currentStep}"]`)?.classList.remove('active');
+            document.querySelector(`.progress-step[data-step="${currentStep}"]`)?.classList.remove('active');
+            currentStep--;
+            document.querySelector(`.step[data-step="${currentStep}"]`)?.classList.add('active');
+            const progressPrev = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
+            if (progressPrev) {
+                progressPrev.classList.add('active');
+                progressPrev.classList.remove('completed');
             }
         }
-        
+
+        // ============================================================
+        // API CALLS
+        // ============================================================
         async function testTastytrade() {
             const username = document.getElementById('tastyUsername').value;
             const password = document.getElementById('tastyPassword').value;
-            
+
             if (!username || !password) {
                 showStatus('Please enter your Tastytrade credentials', 'error');
                 return;
             }
-            
+
             try {
                 showStatus('Testing connection...', 'success');
-                
+
                 const response = await fetch('/api/test-tastytrade', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-                
-                if (!response.ok) {
-                    const text = await response.text();
-                    let errorMessage = `Server error (${response.status})`;
-                    try {
-                        const errorJson = JSON.parse(text);
-                        errorMessage = errorJson.error || errorMessage;
-                    } catch (e) {
-                        // If response is HTML, show generic error
-                        if (text.includes('<!DOCTYPE')) {
-                            errorMessage = `Server returned an error page. Check server logs.`;
-                        } else {
-                            errorMessage = text || errorMessage;
-                        }
-                    }
-                    throw new Error(errorMessage);
-                }
-                
+
                 const result = await response.json();
-                
-                if (!result.success) {
-                    throw new Error(result.error);
-                }
-                
-                config.tastytradeUsername = username;
-                config.tastytradePassword = password;
-                
+                if (!result.success) throw new Error(result.error);
+
+                state.tastytradeUsername = username;
+                state.tastytradePassword = password;
+
                 // Show accounts
-                const accountsList = document.getElementById('accountsList');
                 const accountsDiv = document.getElementById('accounts');
                 accountsDiv.innerHTML = '';
-                
+
                 result.accounts.forEach(account => {
                     const card = document.createElement('div');
                     card.className = 'account-card';
-                    card.innerHTML = `
-                        <strong>${account.nickname || 'Account'}</strong><br>
-                        <small>${account.number}</small>
-                    `;
+                    card.innerHTML = `<strong>${account.nickname || 'Account'}</strong><br><small>${account.number}</small>`;
                     card.onclick = () => {
-                        document.querySelectorAll('.account-card').forEach(c => 
-                            c.classList.remove('selected')
-                        );
+                        document.querySelectorAll('.account-card').forEach(c => c.classList.remove('selected'));
                         card.classList.add('selected');
-                        config.tastytradeAccountNumber = account.number;
-                        
-                        // Hide error message and enable continue button
+                        state.tastytradeAccountNumber = account.number;
                         document.getElementById('accountRequired').style.display = 'none';
                         document.getElementById('testButton').style.display = 'none';
                         document.getElementById('continueButton').style.display = 'inline-block';
@@ -901,342 +658,164 @@
                     };
                     accountsDiv.appendChild(card);
                 });
-                
-                accountsList.style.display = 'block';
-                showStatus('Connection successful! Please select your account.', 'success');
-                
-                // Hide test button, show continue button (but disable until account selected)
+
+                document.getElementById('accountsList').style.display = 'block';
+                showStatus('Connection successful! Select your account.', 'success');
                 document.getElementById('testButton').style.display = 'none';
                 document.getElementById('continueButton').style.display = 'inline-block';
                 document.getElementById('continueButton').disabled = true;
-                
-                // Auto-select if only one account
+
+                // Auto-select if only one
                 if (result.accounts.length === 1) {
-                    config.tastytradeAccountNumber = result.accounts[0].number;
-                    const firstCard = document.querySelector('.account-card');
-                    if (firstCard) {
-                        firstCard.classList.add('selected');
-                        document.getElementById('accountRequired').style.display = 'none';
-                        document.getElementById('continueButton').disabled = false;
-                    }
+                    state.tastytradeAccountNumber = result.accounts[0].number;
+                    document.querySelector('.account-card')?.classList.add('selected');
+                    document.getElementById('continueButton').disabled = false;
                 }
-                
+
             } catch (error) {
                 showStatus('Connection failed: ' + error.message, 'error');
-                // Reset button state on error
                 document.getElementById('testButton').style.display = 'inline-block';
                 document.getElementById('continueButton').style.display = 'none';
             }
         }
-        
-        async function continueAfterAccount() {
-            if (!config.tastytradeAccountNumber) {
-                document.getElementById('accountRequired').style.display = 'block';
-                showStatus('Please select an account to continue', 'error');
-                return;
-            }
-            
+
+        async function loadChannels() {
             try {
-                showStatus('Loading channels...', 'success');
-                
-                // Load channels and proceed to next step
-                const channelsLoaded = await loadChannels();
-                if (channelsLoaded) {
-                    nextStep();
-                }
+                const response = await fetch('/api/get-channels');
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                availableChannels = result.channels;
+                return availableChannels.length > 0;
             } catch (error) {
                 showStatus('Error: ' + error.message, 'error');
+                return false;
             }
         }
-        
+
+        async function continueAfterAccount() {
+            if (!state.tastytradeAccountNumber) {
+                document.getElementById('accountRequired').style.display = 'block';
+                return;
+            }
+            showStatus('Loading channels...', 'success');
+            if (await loadChannels()) nextStep();
+        }
+
+        function renderChannels() {
+            const list = document.getElementById('channelsList');
+            list.innerHTML = '';
+            availableChannels.forEach(channel => {
+                const option = document.createElement('div');
+                option.className = 'channel-option';
+                option.innerHTML = `<strong>${channel.name}</strong><span class="channel-tier">${channel.tier}</span><br><small style="color:#666;">${channel.description || 'Trading signals'}</small>`;
+                option.onclick = () => {
+                    document.querySelectorAll('.channel-option').forEach(c => c.classList.remove('selected'));
+                    option.classList.add('selected');
+                    state.channelId = channel.id;
+                    state.channelName = channel.name;
+                };
+                list.appendChild(option);
+            });
+        }
+
         function selectChannel() {
-            if (!config.channelId) {
+            if (!state.channelId) {
                 showStatus('Please select a channel', 'error');
                 return;
             }
             nextStep();
         }
-        
-        // Position sizing card selection
-        let selectedSizingMethod = 'percentage'; // Default
-
-        function selectSizingOption(card, method) {
-            // Deselect all cards
-            document.querySelectorAll('.option-card').forEach(c => {
-                c.classList.remove('selected');
-            });
-            // Select clicked card
-            card.classList.add('selected');
-            selectedSizingMethod = method;
-        }
-
-        function selectPill(pill) {
-            // Deselect all pills in same group
-            pill.parentElement.querySelectorAll('.pill').forEach(p => {
-                p.classList.remove('selected');
-            });
-            // Select clicked pill
-            pill.classList.add('selected');
-        }
-
-        function getSelectedPercentage() {
-            const selectedPill = document.querySelector('.percentage-pills .pill.selected');
-            return selectedPill ? parseInt(selectedPill.dataset.value) : 2;
-        }
-
-        function selectMultiplierPill(pill) {
-            // Deselect all multiplier pills
-            pill.parentElement.querySelectorAll('.pill').forEach(p => {
-                p.classList.remove('selected');
-            });
-            // Select clicked pill
-            pill.classList.add('selected');
-            // Update custom input to match
-            document.getElementById('customMultiplier').value = pill.dataset.value;
-        }
-
-        function clearMultiplierPills() {
-            // Clear pill selection when custom value is entered
-            const multiplierPills = document.querySelectorAll('[data-sizing="multiplier"] .pill');
-            multiplierPills.forEach(p => p.classList.remove('selected'));
-        }
-
-        function getSelectedMultiplier() {
-            // Check if a pill is selected
-            const selectedPill = document.querySelector('[data-sizing="multiplier"] .pill.selected');
-            if (selectedPill) {
-                return parseFloat(selectedPill.dataset.value);
-            }
-            // Otherwise use custom input
-            return parseFloat(document.getElementById('customMultiplier').value) || 1;
-        }
 
         async function saveConfiguration() {
-            // Collect sizing configuration based on selected card
-            config.sizingMethod = selectedSizingMethod;
+            // Build config based on selected sizing mode
+            const config = {
+                tastytradeUsername: state.tastytradeUsername,
+                tastytradePassword: state.tastytradePassword,
+                tastytradeAccountNumber: state.tastytradeAccountNumber,
+                channelId: state.channelId,
+                channelName: state.channelName,
+                sizingMethod: state.sizingMode,
+                maxDailyLoss: parseInt(document.getElementById('maxDailyLoss').value) || 500
+            };
 
-            if (selectedSizingMethod === 'percentage') {
-                config.percentage = getSelectedPercentage();
-            } else if (selectedSizingMethod === 'multiplier') {
-                config.multiplier = getSelectedMultiplier();
-            } else if (selectedSizingMethod === 'fixed') {
-                config.quantity = parseInt(document.getElementById('fixedQuantity').value) || 2;
+            // Add method-specific settings
+            if (state.sizingMode === 'percentage') {
+                config.percentage = getEffectivePercentage();
+            } else if (state.sizingMode === 'fixed') {
+                config.fixedDollar = parseInt(document.getElementById('fixedDollar').value) || 200;
+            } else if (state.sizingMode === 'proportional') {
+                config.coachMultiplier = state.coachMultiplier;
             }
-            // proportional: no config needed - coach balance comes from central server
 
-            config.maxDailyLoss = parseFloat(document.getElementById('maxDailyLoss').value) || 500;
-            
             try {
                 showStatus('Saving configuration...', 'success');
-                
+
                 const response = await fetch('/api/save-config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(config)
                 });
-                
-                if (!response.ok) {
-                    const text = await response.text();
-                    let errorMessage = `Server error (${response.status})`;
-                    try {
-                        const errorJson = JSON.parse(text);
-                        errorMessage = errorJson.error || errorMessage;
-                    } catch (e) {
-                        // If response is HTML, show generic error
-                        if (text.includes('<!DOCTYPE')) {
-                            errorMessage = `Server returned an error page. Check server logs.`;
-                        } else {
-                            errorMessage = text || errorMessage;
-                        }
-                    }
-                    throw new Error(errorMessage);
-                }
-                
+
                 const result = await response.json();
-                
-                if (!result.success) {
-                    throw new Error(result.error);
-                }
-                
-                // Show final summary
-                document.getElementById('finalChannel').textContent = config.channelName;
-                document.getElementById('finalAccount').textContent = config.tastytradeAccountNumber;
-                
+                if (!result.success) throw new Error(result.error);
+
+                // Show summary
+                document.getElementById('finalChannel').textContent = state.channelName;
+                document.getElementById('finalAccount').textContent = state.tastytradeAccountNumber;
+
                 let sizingText = '';
-                if (config.sizingMethod === 'fixed') {
-                    sizingText = `Fixed: ${config.quantity} contracts`;
-                } else if (config.sizingMethod === 'multiplier') {
-                    sizingText = `${config.multiplier}x signal quantity`;
-                } else if (config.sizingMethod === 'proportional') {
-                    sizingText = `Proportional (coach: $${config.coachBalance.toLocaleString()})`;
+                if (state.sizingMode === 'percentage') {
+                    sizingText = `${config.percentage}% of account per trade`;
+                } else if (state.sizingMode === 'fixed') {
+                    sizingText = `$${config.fixedDollar} per trade`;
                 } else {
-                    sizingText = `${config.percentage}% of account`;
+                    sizingText = `Following coach at ${config.coachMultiplier}x`;
                 }
                 document.getElementById('finalSizing').textContent = sizingText;
-                
+
                 nextStep();
-                
+
             } catch (error) {
                 showStatus('Save failed: ' + error.message, 'error');
             }
         }
-        
-        function nextStep() {
-            hideStatus();
-            
-            // Hide current step
-            const currentStepEl = document.querySelector(`.step[data-step="${currentStep}"]`);
-            if (currentStepEl) {
-                currentStepEl.classList.remove('active');
-            }
-            
-            // Update progress indicator (only if progress step exists)
-            const currentProgressStep = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
-            if (currentProgressStep) {
-                currentProgressStep.classList.add('completed');
-                currentProgressStep.classList.remove('active');
-            }
-            
-            // Show next step
-            currentStep++;
-            const nextStepEl = document.querySelector(`.step[data-step="${currentStep}"]`);
-            if (nextStepEl) {
-                nextStepEl.classList.add('active');
-            }
-            
-            // Update progress indicator for next step (only if it exists)
-            const nextProgressStep = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
-            if (nextProgressStep) {
-                nextProgressStep.classList.add('active');
-            }
-            
-            // Render channels when entering step 2 (channel selection)
-            if (currentStep === 2) {
-                renderChannels();
-            }
-        }
-        
-        function prevStep() {
-            hideStatus();
-            
-            const currentStepEl = document.querySelector(`.step[data-step="${currentStep}"]`);
-            if (currentStepEl) {
-                currentStepEl.classList.remove('active');
-            }
-            
-            const currentProgressStep = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
-            if (currentProgressStep) {
-                currentProgressStep.classList.remove('active');
-            }
-            
-            currentStep--;
-            
-            const prevStepEl = document.querySelector(`.step[data-step="${currentStep}"]`);
-            if (prevStepEl) {
-                prevStepEl.classList.add('active');
-            }
-            
-            const prevProgressStep = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
-            if (prevProgressStep) {
-                prevProgressStep.classList.add('active');
-                prevProgressStep.classList.remove('completed');
-            }
-        }
-        
-        function renderChannels() {
-            const channelsList = document.getElementById('channelsList');
-            channelsList.innerHTML = '';
-            
-            if (availableChannels.length === 0) {
-                channelsList.innerHTML = '<p style="color: #666;">No channels available. Make sure DISCORD_BOT_TOKEN is set in your .env file.</p>';
-                return;
-            }
-            
-            availableChannels.forEach(channel => {
-                const option = document.createElement('div');
-                option.className = 'channel-option';
-                option.innerHTML = `
-                    <strong>${channel.name}</strong>
-                    <span class="channel-tier">${channel.tier}</span>
-                    <br>
-                    <small style="color: #666;">${channel.description || 'Trading signals'}</small>
-                `;
-                option.onclick = () => {
-                    document.querySelectorAll('.channel-option').forEach(c => 
-                        c.classList.remove('selected')
-                    );
-                    option.classList.add('selected');
-                    config.channelId = channel.id;
-                    config.channelName = channel.name;
-                };
-                channelsList.appendChild(option);
-            });
-        }
 
-        // Check if already configured on page load
         async function checkConfigStatus() {
             try {
                 const response = await fetch('/api/status');
                 const result = await response.json();
-                
                 if (result.configured && result.config) {
-                    // Show reset banner
                     document.getElementById('resetBanner').style.display = 'block';
-                    
-                    // Populate current config
                     document.getElementById('currentAccount').textContent = result.config.tastytradeAccountNumber || '-';
                     document.getElementById('currentChannel').textContent = result.config.channelName || '-';
-                    document.getElementById('currentSizing').textContent = result.config.sizingMethod || '-';
-                    
-                    if (result.config.configuredAt) {
-                        const date = new Date(result.config.configuredAt);
-                        document.getElementById('currentDate').textContent = date.toLocaleString();
+
+                    let sizingText = '-';
+                    if (result.config.sizingMethod === 'percentage') {
+                        sizingText = `${result.config.percentage}% per trade`;
+                    } else if (result.config.sizingMethod === 'fixed') {
+                        sizingText = `$${result.config.fixedDollar} per trade`;
+                    } else if (result.config.sizingMethod === 'proportional') {
+                        sizingText = `Following coach at ${result.config.coachMultiplier || 1}x`;
                     }
+                    document.getElementById('currentSizing').textContent = sizingText;
                 }
-            } catch (error) {
-                console.log('Could not check config status:', error);
-            }
+            } catch (e) { console.log('Config check failed:', e); }
         }
 
-        // Reset configuration
         async function resetConfiguration() {
-            if (!confirm('⚠️ Are you sure you want to reset your trading bot configuration?\n\nThis will:\n• Delete your saved credentials\n• Stop the current bot\n• Require you to reconfigure from scratch')) {
-                return;
-            }
-            
+            if (!confirm('Reset your trading bot configuration?\n\nThis will delete credentials and stop the bot.')) return;
             try {
-                showStatus('Resetting configuration...', 'success');
-                
-                const response = await fetch('/api/reset-config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                
+                showStatus('Resetting...', 'success');
+                const response = await fetch('/api/reset-config', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
                 const result = await response.json();
-                
-                if (!result.success) {
-                    throw new Error(result.error);
-                }
-                
-                showStatus('Configuration reset! Reloading page...', 'success');
-                
-                // Hide the reset banner
-                document.getElementById('resetBanner').style.display = 'none';
-                
-                // Reload the page after a brief delay
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
-                
+                if (!result.success) throw new Error(result.error);
+                setTimeout(() => window.location.reload(), 1500);
             } catch (error) {
                 showStatus('Reset failed: ' + error.message, 'error');
             }
         }
 
-        // Check config status on page load
         window.addEventListener('load', checkConfigStatus);
     </script>
 </body>
 </html>
-
-

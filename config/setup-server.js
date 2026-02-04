@@ -1,12 +1,75 @@
 const TastytradeClient = require('@tastytrade/api').default;
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
 
 /**
  * Setup Server Routes
  * Handles configuration API endpoints
  */
 module.exports = (app, configManager) => {
+
+  /**
+   * Record settings changes to central server for audit trail
+   */
+  async function recordSettingsChange(oldConfig, newConfig) {
+    const centralServerUrl = process.env.CENTRAL_SERVER_URL;
+    const subscriberId = process.env.CENTRAL_SUBSCRIBER_ID;
+    const botId = process.env.CENTRAL_BOT_ID;
+    const botToken = process.env.CENTRAL_BOT_TOKEN;
+
+    if (!centralServerUrl || !subscriberId || !botToken) {
+      console.log('⚠️  Central server not configured, skipping settings history');
+      return;
+    }
+
+    // Settings to track (sensitive fields excluded)
+    const trackedSettings = [
+      'sizingMethod', 'percentage', 'fixedDollar', 'coachMultiplier',
+      'maxDailyLoss', 'channelId', 'channelName', 'tastytradeAccountNumber'
+    ];
+
+    const changes = [];
+
+    for (const key of trackedSettings) {
+      const oldValue = oldConfig?.[key];
+      const newValue = newConfig?.[key];
+
+      // Record if changed or if new setting on first config
+      if (oldValue !== newValue) {
+        changes.push({
+          setting_key: key,
+          old_value: oldValue !== undefined ? String(oldValue) : null,
+          new_value: newValue !== undefined ? String(newValue) : null
+        });
+      }
+    }
+
+    if (changes.length === 0) {
+      console.log('📊 No tracked settings changed');
+      return;
+    }
+
+    try {
+      console.log(`📊 Recording ${changes.length} setting changes to central server...`);
+
+      await axios.post(
+        `${centralServerUrl}/api/v1/bot/settings-change`,
+        {
+          subscriberId,
+          botId,
+          botToken,
+          changes
+        },
+        { timeout: 5000 }
+      );
+
+      console.log('✅ Settings changes recorded');
+    } catch (error) {
+      console.error('⚠️  Failed to record settings history:', error.message);
+      // Don't fail the save - history is nice-to-have
+    }
+  }
   
   // Serve configuration page
   app.get('/', (req, res) => {
@@ -186,16 +249,16 @@ module.exports = (app, configManager) => {
   app.post('/api/save-config', async (req, res) => {
     try {
       const config = req.body;
-      
+
       // Validate configuration
       if (!config.tastytradeUsername && !config.tastytradeClientSecret) {
         throw new Error('Tastytrade credentials required');
       }
-      
+
       if (!process.env.DISCORD_BOT_TOKEN) {
         throw new Error('DISCORD_BOT_TOKEN not found in .env file. Please set it in your .env file.');
       }
-      
+
       if (!config.channelId) {
         throw new Error('Channel selection required');
       }
@@ -203,9 +266,15 @@ module.exports = (app, configManager) => {
       if (!config.tastytradeAccountNumber) {
         throw new Error('Tastytrade account selection required');
       }
-      
+
+      // Get existing config for change tracking
+      const oldConfig = configManager.getConfig ? configManager.getConfig() : null;
+
       // Add metadata
       config.configuredAt = new Date().toISOString();
+
+      // Record settings changes to central server (async, non-blocking)
+      recordSettingsChange(oldConfig, config).catch(() => {});
 
       // Save configuration (encrypted) - Discord token comes from .env, not saved in config
       await configManager.save(config);

@@ -102,50 +102,55 @@ class TastytradeExecutor {
       }
     }
 
-    // Initialize proportional sizing if configured
-    if (this.config.sizingMethod === 'proportional') {
-      await this.initializeProportionalSizing();
+    // Initialize sizing cache if using proportional or percentage methods
+    if (this.config.sizingMethod === 'proportional' || this.config.sizingMethod === 'percentage') {
+      await this.initializeSizingCache();
     }
   }
 
   /**
-   * Initialize proportional position sizing
-   * Queries follower balance and computes ratio with coach balance
-   * Coach balance is fetched from central server if connected
+   * Initialize position sizing cache
+   * Caches balances for low-latency trade execution
+   * For proportional: needs both coach and follower balance
+   * For percentage: only needs follower balance
    */
-  async initializeProportionalSizing() {
-    let coachBalance = 0;
+  async initializeSizingCache() {
+    let coachBalance = null;
 
-    // Try to fetch coach balance from central server first
-    if (this.configClient) {
-      try {
-        coachBalance = await this.configClient.getCoachBalance();
-        if (coachBalance > 0) {
-          console.log(`📊 Coach balance from central server: $${coachBalance.toLocaleString()}`);
+    // Only fetch coach balance for proportional sizing
+    if (this.config.sizingMethod === 'proportional') {
+      // Try to fetch coach balance from central server first
+      if (this.configClient) {
+        try {
+          coachBalance = await this.configClient.getCoachBalance();
+          if (coachBalance > 0) {
+            console.log(`📊 Coach balance from central server: $${coachBalance.toLocaleString()}`);
+          }
+        } catch (error) {
+          console.warn('⚠️  Failed to fetch coach balance from central server:', error.message);
         }
-      } catch (error) {
-        console.warn('⚠️  Failed to fetch coach balance from central server:', error.message);
       }
-    }
 
-    // Fall back to local config if central server didn't provide balance
-    if (!coachBalance || coachBalance <= 0) {
-      coachBalance = this.config.coachBalance || parseFloat(process.env.COACH_ACCOUNT_BALANCE) || 0;
-      if (coachBalance > 0) {
-        console.log(`📊 Coach balance from local config: $${coachBalance.toLocaleString()}`);
+      // Fall back to local config if central server didn't provide balance
+      if (!coachBalance || coachBalance <= 0) {
+        coachBalance = this.config.coachBalance || parseFloat(process.env.COACH_ACCOUNT_BALANCE) || 0;
+        if (coachBalance > 0) {
+          console.log(`📊 Coach balance from local config: $${coachBalance.toLocaleString()}`);
+        }
       }
-    }
 
-    if (!coachBalance || coachBalance <= 0) {
-      console.warn('⚠️  Coach balance not configured for proportional sizing');
-      console.warn('   Admin should set coach balance on central server');
-      console.warn('   Falling back to fixed quantity sizing');
-      this.config.sizingMethod = 'fixed';
-      return;
+      if (!coachBalance || coachBalance <= 0) {
+        console.warn('⚠️  Coach balance not configured for proportional sizing');
+        console.warn('   Admin should set coach balance on central server');
+        console.warn('   Falling back to fixed quantity sizing');
+        this.config.sizingMethod = 'fixed';
+        return;
+      }
     }
 
     try {
-      await this.sizer.initializeProportionalSizing(coachBalance);
+      // Initialize sizer with balance caching (coachBalance can be null for percentage method)
+      await this.sizer.initializeSizing(coachBalance);
 
       // Start periodic balance refresh (every 60 seconds by default)
       const refreshInterval = this.config.balanceCacheTTL || 60000;
@@ -159,7 +164,7 @@ class TastytradeExecutor {
 
       console.log(`📊 Balance refresh scheduled every ${refreshInterval / 1000}s`);
     } catch (error) {
-      console.error('❌ Failed to initialize proportional sizing:', error.message);
+      console.error('❌ Failed to initialize position sizing:', error.message);
       console.warn('   Falling back to fixed quantity sizing');
       this.config.sizingMethod = 'fixed';
     }
