@@ -418,8 +418,11 @@ class TradingBroadcaster {
     );
 
     // Add price if available
-    if (signal.price) {
-      embed.addFields({ name: 'Price', value: `$${signal.price}`, inline: true });
+    if (signal.price !== undefined && signal.price !== null) {
+      const price = parseFloat(signal.price);
+      if (!isNaN(price) && price >= 0) {
+        embed.addFields({ name: 'Price', value: `$${price.toFixed(2)}`, inline: true });
+      }
     }
 
     // Add status
