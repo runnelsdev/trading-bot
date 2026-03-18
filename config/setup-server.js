@@ -214,12 +214,25 @@ module.exports = (app, configManager) => {
         } else {
           // Session-based authentication
           client = new TastytradeClient(config);
-          await client.sessionService.login(username, password);
+
+          try {
+            await client.sessionService.login(username, password, true);
+          } catch (loginError) {
+            // Check if 2FA is required (403 response)
+            if (loginError.response?.status === 403) {
+              return res.json({
+                success: false,
+                needs_otp: true,
+                message: 'Two-factor authentication required. Please enter your one-time password.'
+              });
+            }
+            throw loginError;
+          }
         }
-        
+
         // Get accounts
         const accounts = await client.accountsAndCustomersService.getCustomerAccounts();
-        
+
         res.json({
           success: true,
           message: 'Connection successful',
@@ -228,7 +241,7 @@ module.exports = (app, configManager) => {
             nickname: acc.account.nickname || acc.account['account-number']
           }))
         });
-        
+
       } catch (error) {
         console.error('Tastytrade connection error:', error);
         res.status(400).json({
@@ -242,6 +255,75 @@ module.exports = (app, configManager) => {
         success: false,
         error: 'Internal server error: ' + (error.message || 'Unknown error')
       });
+    }
+  });
+
+  // Verify OTP and get remember-token
+  app.post('/api/verify-otp', async (req, res) => {
+    try {
+      const { username, password, otp } = req.body;
+
+      if (!username || !password || !otp) {
+        return res.status(400).json({ success: false, error: 'Username, password, and OTP required' });
+      }
+
+      const TastytradeClient = require('@tastytrade/api').default;
+      const config = process.env.TASTYTRADE_ENV === 'production'
+        ? TastytradeClient.ProdConfig
+        : TastytradeClient.SandboxConfig;
+
+      const client = new TastytradeClient(config);
+
+      // Login with OTP via direct API call (SDK doesn't support OTP parameter)
+      const baseUrl = process.env.TASTYTRADE_ENV === 'production'
+        ? 'https://api.tastytrade.com'
+        : 'https://api.cert.tastyworks.com';
+
+      const axios = require('axios');
+      const loginResponse = await axios.post(`${baseUrl}/sessions`, {
+        login: username,
+        password: password,
+        'remember-me': true,
+        'one-time-password': otp
+      });
+
+      const sessionData = loginResponse.data.data;
+      const rememberToken = sessionData['remember-token'];
+
+      if (!rememberToken) {
+        console.warn('⚠️  No remember-token returned from Tastytrade');
+      } else {
+        console.log('✅ Got remember-token from Tastytrade');
+      }
+
+      // Use the session to get accounts
+      client.session = client.session || {};
+      client.httpClient = client.httpClient || {};
+      if (client.httpClient.session) {
+        client.httpClient.session.authToken = sessionData['session-token'];
+      }
+
+      // Get accounts using the session token directly
+      const accountsResponse = await axios.get(`${baseUrl}/customers/me/accounts`, {
+        headers: { 'Authorization': sessionData['session-token'] }
+      });
+
+      const accounts = accountsResponse.data.data.items || [];
+
+      res.json({
+        success: true,
+        message: 'Two-factor authentication successful',
+        rememberToken: rememberToken || null,
+        accounts: accounts.map(acc => ({
+          number: acc.account['account-number'],
+          nickname: acc.account.nickname || acc.account['account-number']
+        }))
+      });
+
+    } catch (error) {
+      console.error('OTP verification error:', error.response?.data || error.message);
+      const errMsg = error.response?.data?.error?.message || error.message || 'OTP verification failed';
+      res.status(400).json({ success: false, error: errMsg });
     }
   });
 

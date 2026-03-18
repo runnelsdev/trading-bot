@@ -74,12 +74,45 @@ class TastytradeExecutor {
       }
       
       console.log('✅ Tastytrade connected (OAuth)');
+    } else if (this.config.tastytradeRememberToken) {
+      // Session-based with remember-token (skips 2FA)
+      console.log('   Using remember-token authentication...');
+      try {
+        const sessionData = await this.client.sessionService.loginWithRememberToken(
+          this.config.tastytradeUsername,
+          this.config.tastytradeRememberToken,
+          true
+        );
+        // Update remember-token if a new one was returned
+        if (sessionData['remember-token'] && sessionData['remember-token'] !== this.config.tastytradeRememberToken) {
+          console.log('   Refreshed remember-token');
+          this.config.tastytradeRememberToken = sessionData['remember-token'];
+          // Save updated token
+          try {
+            const ConfigManager = require('./ConfigManager');
+            const cm = new ConfigManager();
+            await cm.save(this.config);
+          } catch (e) {
+            console.warn('   Could not save refreshed remember-token:', e.message);
+          }
+        }
+        console.log('✅ Tastytrade connected (Remember Token)');
+      } catch (rememberError) {
+        console.warn('⚠️  Remember-token login failed, falling back to password...');
+        await this.client.sessionService.login(
+          this.config.tastytradeUsername,
+          this.config.tastytradePassword,
+          true
+        );
+        console.log('✅ Tastytrade connected (Session fallback)');
+      }
     } else {
-      // Session-based authentication
+      // Session-based authentication (no remember-token)
       console.log('   Using session authentication...');
       await this.client.sessionService.login(
         this.config.tastytradeUsername,
-        this.config.tastytradePassword
+        this.config.tastytradePassword,
+        true
       );
       console.log('✅ Tastytrade connected (Session)');
     }

@@ -86,6 +86,11 @@ class ConfigManager {
       tastytradePassword: this.encrypt(config.tastytradePassword)
     };
 
+    // Encrypt remember-token if present
+    if (config.tastytradeRememberToken) {
+      encryptedConfig.tastytradeRememberToken = this.encrypt(config.tastytradeRememberToken);
+    }
+
     // Ensure config directory exists
     const configDir = path.dirname(this.configPath);
     if (!fs.existsSync(configDir)) {
@@ -119,6 +124,11 @@ class ConfigManager {
       tastytradeUsername: this.decrypt(encryptedConfig.tastytradeUsername),
       tastytradePassword: this.decrypt(encryptedConfig.tastytradePassword)
     };
+
+    // Decrypt remember-token if present
+    if (encryptedConfig.tastytradeRememberToken) {
+      config.tastytradeRememberToken = this.decrypt(encryptedConfig.tastytradeRememberToken);
+    }
 
     // Merge Discord token from .env
     if (process.env.DISCORD_BOT_TOKEN) {

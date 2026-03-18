@@ -342,6 +342,15 @@
                 <p class="help-text">Your credentials are encrypted and stored only on YOUR server</p>
             </div>
 
+            <div id="otpSection" style="margin-top: 20px; display: none;">
+                <div class="form-group">
+                    <label>One-Time Password (2FA) *</label>
+                    <input type="text" id="tastyOtp" placeholder="Enter 6-digit code from your authenticator app" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+                    <p class="help-text">Check your authenticator app for the current code</p>
+                </div>
+                <button id="verifyOtpButton" onclick="verifyOtp()">Verify OTP</button>
+            </div>
+
             <div id="accountsList" style="margin-top: 20px; display: none;">
                 <h3>Select Account: *</h3>
                 <p class="help-text" style="margin-bottom: 10px; color: #d32f2f; display: none;" id="accountRequired">Please select an account</p>
@@ -652,6 +661,18 @@
                 });
 
                 const result = await response.json();
+
+                // Check if 2FA is required
+                if (result.needs_otp) {
+                    state.tastytradeUsername = username;
+                    state.tastytradePassword = password;
+                    document.getElementById('otpSection').style.display = 'block';
+                    document.getElementById('testButton').style.display = 'none';
+                    document.getElementById('tastyOtp').focus();
+                    showStatus('Two-factor authentication required. Enter your authenticator code.', 'success');
+                    return;
+                }
+
                 if (!result.success) throw new Error(result.error);
 
                 state.tastytradeUsername = username;
@@ -694,6 +715,77 @@
                 showStatus('Connection failed: ' + error.message, 'error');
                 document.getElementById('testButton').style.display = 'inline-block';
                 document.getElementById('continueButton').style.display = 'none';
+                document.getElementById('otpSection').style.display = 'none';
+            }
+        }
+
+        async function verifyOtp() {
+            const otp = document.getElementById('tastyOtp').value.trim();
+            if (!otp || otp.length < 6) {
+                showStatus('Please enter a valid 6-digit code', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Verifying OTP...', 'success');
+                document.getElementById('verifyOtpButton').disabled = true;
+
+                const response = await fetch('/api/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: state.tastytradeUsername,
+                        password: state.tastytradePassword,
+                        otp: otp
+                    })
+                });
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                // Store remember-token for future logins
+                if (result.rememberToken) {
+                    state.tastytradeRememberToken = result.rememberToken;
+                }
+
+                document.getElementById('otpSection').style.display = 'none';
+
+                // Show accounts
+                const accountsDiv = document.getElementById('accounts');
+                accountsDiv.innerHTML = '';
+
+                result.accounts.forEach(account => {
+                    const card = document.createElement('div');
+                    card.className = 'account-card';
+                    card.innerHTML = `<strong>${account.nickname || 'Account'}</strong><br><small>${account.number}</small>`;
+                    card.onclick = () => {
+                        document.querySelectorAll('.account-card').forEach(c => c.classList.remove('selected'));
+                        card.classList.add('selected');
+                        state.tastytradeAccountNumber = account.number;
+                        document.getElementById('accountRequired').style.display = 'none';
+                        document.getElementById('testButton').style.display = 'none';
+                        document.getElementById('continueButton').style.display = 'inline-block';
+                        document.getElementById('continueButton').disabled = false;
+                    };
+                    accountsDiv.appendChild(card);
+                });
+
+                document.getElementById('accountsList').style.display = 'block';
+                showStatus('Verified! Select your account.', 'success');
+                document.getElementById('continueButton').style.display = 'inline-block';
+                document.getElementById('continueButton').disabled = true;
+
+                if (result.accounts.length === 1) {
+                    state.tastytradeAccountNumber = result.accounts[0].number;
+                    document.querySelector('.account-card')?.classList.add('selected');
+                    document.getElementById('continueButton').disabled = false;
+                }
+
+            } catch (error) {
+                showStatus('OTP verification failed: ' + error.message, 'error');
+                document.getElementById('verifyOtpButton').disabled = false;
+                document.getElementById('tastyOtp').value = '';
+                document.getElementById('tastyOtp').focus();
             }
         }
 
@@ -749,6 +841,7 @@
             const config = {
                 tastytradeUsername: state.tastytradeUsername,
                 tastytradePassword: state.tastytradePassword,
+                tastytradeRememberToken: state.tastytradeRememberToken || null,
                 tastytradeAccountNumber: state.tastytradeAccountNumber,
                 channelId: state.channelId,
                 channelName: state.channelName,
