@@ -21,7 +21,16 @@ async function main() {
     const app = express();
     app.use(express.json());
     app.use(express.static(path.join(__dirname, '../public')));
-    
+
+    app.get('/api/bot-status', (req, res) => {
+      res.json({
+        state: 'setup',
+        tastytrade: 'not configured',
+        discord: 'not configured',
+        message: 'Awaiting initial setup'
+      });
+    });
+
     // Configuration endpoints
     require('../config/setup-server')(app, configManager);
     
