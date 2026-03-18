@@ -45,16 +45,24 @@ async function main() {
       
       // Initialize components
       const executor = new TastytradeExecutor(botConfig);
+      console.log('🔐 Logging in to Tastytrade...');
       await executor.connect();
-      
+      console.log('✅ TASTYTRADE: LOGGED IN');
+
       const listener = new DiscordListener(botConfig, executor);
       await listener.start();
-      
-      console.log('✅ Trading bot is running');
-      console.log(`📡 Listening to channel: ${botConfig.channelName}`);
-      console.log(`💼 Connected to Tastytrade account: ${botConfig.tastytradeAccountNumber}`);
-      console.log(`📊 Position sizing: ${botConfig.sizingMethod}`);
-      console.log(`🛡️  Daily limits: ${botConfig.maxDailyTrades} trades, $${botConfig.maxDailyLoss} loss`);
+      console.log('✅ DISCORD: CONNECTED');
+
+      console.log('');
+      console.log('═══════════════════════════════════════');
+      console.log('  ✅ BOT ONLINE - All systems connected');
+      console.log('═══════════════════════════════════════');
+      console.log(`  📡 Channel: ${botConfig.channelName}`);
+      console.log(`  💼 Tastytrade: ${botConfig.tastytradeAccountNumber}`);
+      console.log(`  📊 Sizing: ${botConfig.sizingMethod}`);
+      console.log(`  🛡️  Max loss: $${botConfig.maxDailyLoss}`);
+      console.log('═══════════════════════════════════════');
+      console.log('');
 
       // Connect to central server for heartbeats
       if (process.env.CENTRAL_SERVER_URL && process.env.CENTRAL_BOT_TOKEN && (process.env.CENTRAL_SUBSCRIBER_ID || process.env.DEPLOYMENT_ID)) {
@@ -80,10 +88,25 @@ async function main() {
       const app = express();
       app.use(express.json());
       app.use(express.static(path.join(__dirname, '../public')));
-      
+
+      // Live status endpoint
+      const startedAt = new Date().toISOString();
+      app.get('/api/bot-status', (req, res) => {
+        const status = executor.getStatus ? executor.getStatus() : {};
+        res.json({
+          state: 'online',
+          tastytrade: status.connected !== false ? 'connected' : 'disconnected',
+          discord: listener.isConnected ? 'connected' : 'disconnected',
+          account: botConfig.tastytradeAccountNumber,
+          channel: botConfig.channelName,
+          sizing: botConfig.sizingMethod,
+          startedAt
+        });
+      });
+
       // Setup endpoints (for reset functionality)
       require('../config/setup-server')(app, configManager);
-      
+
       const port = process.env.PORT || 3000;
       app.listen(port, '0.0.0.0', () => {
         console.log(`\n🌐 Management UI available at: http://localhost:${port}`);
@@ -101,6 +124,12 @@ async function main() {
       console.error('❌ Failed to start bot:', error.message);
 
       // Instead of crash-looping, fall back to setup mode
+      console.log('');
+      console.log('═══════════════════════════════════════');
+      console.log('  ❌ BOT OFFLINE - Login failed');
+      console.log(`  Reason: ${error.message}`);
+      console.log('═══════════════════════════════════════');
+      console.log('');
       console.log('🔧 Falling back to setup mode...');
       const fs = require('fs');
       const configPath = path.join(__dirname, '../config/bot-config.json');
@@ -112,6 +141,16 @@ async function main() {
       const app = express();
       app.use(express.json());
       app.use(express.static(path.join(__dirname, '../public')));
+
+      app.get('/api/bot-status', (req, res) => {
+        res.json({
+          state: 'offline',
+          tastytrade: 'not connected',
+          discord: 'not connected',
+          error: error.message
+        });
+      });
+
       require('../config/setup-server')(app, configManager);
 
       const port = process.env.PORT || 3000;
