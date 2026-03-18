@@ -4,6 +4,7 @@ const path = require('path');
 const ConfigManager = require('./ConfigManager');
 const DiscordListener = require('./DiscordListener');
 const TastytradeExecutor = require('./TastytradeExecutor');
+const ConfigClient = require('./ConfigClient');
 
 /**
  * Subscriber Bot Main Entry Point
@@ -54,6 +55,26 @@ async function main() {
       console.log(`💼 Connected to Tastytrade account: ${botConfig.tastytradeAccountNumber}`);
       console.log(`📊 Position sizing: ${botConfig.sizingMethod}`);
       console.log(`🛡️  Daily limits: ${botConfig.maxDailyTrades} trades, $${botConfig.maxDailyLoss} loss`);
+
+      // Connect to central server for heartbeats
+      if (process.env.CENTRAL_SERVER_URL && process.env.CENTRAL_BOT_TOKEN && (process.env.CENTRAL_SUBSCRIBER_ID || process.env.DEPLOYMENT_ID)) {
+        try {
+          const configClient = new ConfigClient({
+            serverUrl: process.env.CENTRAL_SERVER_URL,
+            subscriberId: process.env.CENTRAL_SUBSCRIBER_ID,
+            deploymentId: process.env.DEPLOYMENT_ID,
+            botToken: process.env.CENTRAL_BOT_TOKEN
+          });
+
+          if (process.env.CENTRAL_DISCORD_USER_ID) {
+            await configClient.authenticate(process.env.CENTRAL_DISCORD_USER_ID);
+            console.log('✅ Central Server connected');
+            configClient.startHeartbeat(60000);
+          }
+        } catch (error) {
+          console.warn('⚠️  Central Server connection failed:', error.message);
+        }
+      }
       
       // Start web server for management/reset even when running
       const app = express();
