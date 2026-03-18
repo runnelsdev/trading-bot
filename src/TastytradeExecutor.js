@@ -98,9 +98,9 @@ class TastytradeExecutor {
         }
         console.log('✅ Tastytrade connected (Remember Token)');
       } catch (rememberError) {
-        console.warn('⚠️  Remember-token login failed:', rememberError.response?.status, rememberError.response?.data || rememberError.message);
-        // Don't fall back to password — it will also fail with 2FA
-        // Instead, throw a clear error so the user knows to reconfigure
+        const errData = rememberError.response?.data;
+        console.warn('⚠️  Remember-token login failed:', rememberError.response?.status, JSON.stringify(errData));
+        // Don't fall back to password — it will also fail with device challenge
         throw new Error('Remember-token expired or invalid. Please reconfigure via setup wizard.');
       }
     } else {

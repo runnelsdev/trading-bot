@@ -217,18 +217,32 @@ module.exports = (app, configManager) => {
 
           try {
             const sessionData = await client.sessionService.login(username, password, true);
-            // If login succeeded without 2FA, capture remember-token
+            // If login succeeded, capture remember-token
             if (sessionData && sessionData['remember-token']) {
               res._rememberToken = sessionData['remember-token'];
             }
           } catch (loginError) {
             const status = loginError.response?.status;
             const errorData = loginError.response?.data;
+            const errorCode = errorData?.error?.code;
+            const sessionToken = loginError.response?.headers?.['set-cookie']
+              ?.find(c => c.includes('session'))
+              || loginError.response?.headers?.authorization;
 
             console.log(`Tastytrade login returned ${status}:`, JSON.stringify(errorData));
+            console.log('Response headers:', JSON.stringify(loginError.response?.headers));
 
-            // 403 = 2FA required
+            if (status === 403 && errorCode === 'device_challenge_required') {
+              // Device challenge - need to send verification code
+              return res.json({
+                success: false,
+                needs_device_challenge: true,
+                message: 'Device verification required. A code will be sent to your email/phone.'
+              });
+            }
+
             if (status === 403) {
+              // Other 403 - could be OTP/2FA
               const errorMsg = errorData?.error?.message || '';
               return res.json({
                 success: false,
@@ -265,6 +279,153 @@ module.exports = (app, configManager) => {
       res.status(500).json({
         success: false,
         error: 'Internal server error: ' + (error.message || 'Unknown error')
+      });
+    }
+  });
+
+  // Trigger device challenge - sends verification code via email/SMS
+  app.post('/api/device-challenge', async (req, res) => {
+    try {
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({ success: false, error: 'Username and password required' });
+      }
+
+      const axios = require('axios');
+      const baseUrl = process.env.TASTYTRADE_ENV === 'production'
+        ? 'https://api.tastytrade.com'
+        : 'https://api.cert.tastyworks.com';
+
+      // Step 1: Login to get the session token (will return 403 with device challenge)
+      let sessionToken = null;
+      try {
+        const loginResp = await axios.post(`${baseUrl}/sessions`, {
+          login: username,
+          password: password,
+          'remember-me': true
+        });
+        // If login succeeds without challenge, we're done
+        sessionToken = loginResp.data?.data?.['session-token'];
+        if (sessionToken) {
+          return res.json({
+            success: true,
+            skip_challenge: true,
+            sessionToken,
+            rememberToken: loginResp.data?.data?.['remember-token'] || null
+          });
+        }
+      } catch (loginErr) {
+        const errData = loginErr.response?.data;
+        const errCode = errData?.error?.code;
+
+        if (errCode !== 'device_challenge_required') {
+          console.error('Device challenge - unexpected login error:', errCode, errData);
+          return res.status(400).json({ success: false, error: errData?.error?.message || 'Login failed' });
+        }
+
+        // Extract session token from the 403 response
+        // Tastytrade returns it in the response data or headers
+        sessionToken = errData?.data?.['session-token']
+          || loginErr.response?.headers?.['session-token']
+          || loginErr.response?.headers?.authorization;
+
+        console.log('Device challenge required, session-token present:', !!sessionToken);
+        console.log('403 response data keys:', Object.keys(errData || {}));
+        console.log('403 response headers:', JSON.stringify(loginErr.response?.headers));
+      }
+
+      if (!sessionToken) {
+        // Try to extract from any available source
+        console.log('No session token found in device challenge response');
+        return res.status(400).json({
+          success: false,
+          error: 'Could not obtain session token for device challenge. Check server logs.'
+        });
+      }
+
+      // Step 2: POST to /device-challenge to trigger the verification code
+      try {
+        const challengeResp = await axios.post(`${baseUrl}/device-challenge`, {}, {
+          headers: {
+            'Authorization': sessionToken,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        console.log('Device challenge triggered:', challengeResp.status, JSON.stringify(challengeResp.data));
+
+        res.json({
+          success: true,
+          message: 'Verification code sent! Check your email or phone.',
+          sessionToken: sessionToken
+        });
+
+      } catch (challengeErr) {
+        console.error('Device challenge trigger error:', challengeErr.response?.status, JSON.stringify(challengeErr.response?.data));
+        res.status(400).json({
+          success: false,
+          error: challengeErr.response?.data?.error?.message || 'Failed to trigger device challenge'
+        });
+      }
+
+    } catch (error) {
+      console.error('Device challenge error:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Verify device challenge code
+  app.post('/api/device-challenge/verify', async (req, res) => {
+    try {
+      const { username, code, sessionToken } = req.body;
+
+      if (!code || !sessionToken) {
+        return res.status(400).json({ success: false, error: 'Verification code and session token required' });
+      }
+
+      const axios = require('axios');
+      const baseUrl = process.env.TASTYTRADE_ENV === 'production'
+        ? 'https://api.tastytrade.com'
+        : 'https://api.cert.tastyworks.com';
+
+      const verifyResp = await axios.post(`${baseUrl}/device-challenge`, {
+        code: code
+      }, {
+        headers: {
+          'Authorization': sessionToken,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Device challenge verified:', verifyResp.status, JSON.stringify(verifyResp.data));
+
+      const sessionData = verifyResp.data?.data || verifyResp.data;
+      const rememberToken = sessionData['remember-token'];
+      const newSessionToken = sessionData['session-token'] || sessionToken;
+
+      // Get accounts using the verified session
+      const accountsResp = await axios.get(`${baseUrl}/customers/me/accounts`, {
+        headers: { 'Authorization': newSessionToken }
+      });
+
+      const accounts = accountsResp.data?.data?.items || [];
+
+      res.json({
+        success: true,
+        message: 'Device verified successfully!',
+        rememberToken: rememberToken || null,
+        accounts: accounts.map(acc => ({
+          number: acc.account['account-number'],
+          nickname: acc.account.nickname || acc.account['account-number']
+        }))
+      });
+
+    } catch (error) {
+      console.error('Device challenge verify error:', error.response?.status, JSON.stringify(error.response?.data));
+      res.status(400).json({
+        success: false,
+        error: error.response?.data?.error?.message || 'Verification failed. Please try again.'
       });
     }
   });

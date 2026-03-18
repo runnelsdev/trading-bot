@@ -351,6 +351,23 @@
                 <button id="verifyOtpButton" onclick="verifyOtp()">Verify OTP</button>
             </div>
 
+            <div id="deviceChallengeSection" style="margin-top: 20px; display: none;">
+                <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                    <strong>Device Verification Required</strong>
+                    <p style="margin-top: 8px; color: #664d03;">Tastytrade needs to verify this device. Click below to receive a verification code via email or SMS.</p>
+                </div>
+                <button id="sendChallengeButton" onclick="sendDeviceChallenge()">Send Verification Code</button>
+
+                <div id="challengeCodeSection" style="display: none; margin-top: 16px;">
+                    <div class="form-group">
+                        <label>Verification Code *</label>
+                        <input type="text" id="challengeCode" placeholder="Enter the code from your email/SMS" maxlength="10" inputmode="numeric">
+                        <p class="help-text">Check your email or phone for the verification code</p>
+                    </div>
+                    <button id="verifyChallengeButton" onclick="verifyDeviceChallenge()">Verify Code</button>
+                </div>
+            </div>
+
             <div id="accountsList" style="margin-top: 20px; display: none;">
                 <h3>Select Account: *</h3>
                 <p class="help-text" style="margin-bottom: 10px; color: #d32f2f; display: none;" id="accountRequired">Please select an account</p>
@@ -662,7 +679,17 @@
 
                 const result = await response.json();
 
-                // Check if 2FA is required
+                // Check if device challenge is required
+                if (result.needs_device_challenge) {
+                    state.tastytradeUsername = username;
+                    state.tastytradePassword = password;
+                    document.getElementById('deviceChallengeSection').style.display = 'block';
+                    document.getElementById('testButton').style.display = 'none';
+                    showStatus('Device verification required. Click "Send Verification Code" to continue.', 'success');
+                    return;
+                }
+
+                // Check if 2FA/OTP is required
                 if (result.needs_otp) {
                     state.tastytradeUsername = username;
                     state.tastytradePassword = password;
@@ -789,6 +816,112 @@
                 document.getElementById('verifyOtpButton').disabled = false;
                 document.getElementById('tastyOtp').value = '';
                 document.getElementById('tastyOtp').focus();
+            }
+        }
+
+        async function sendDeviceChallenge() {
+            try {
+                showStatus('Sending verification code...', 'success');
+                document.getElementById('sendChallengeButton').disabled = true;
+
+                const response = await fetch('/api/device-challenge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: state.tastytradeUsername,
+                        password: state.tastytradePassword
+                    })
+                });
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                if (result.skip_challenge) {
+                    // Login succeeded without challenge
+                    state.tastytradeRememberToken = result.rememberToken;
+                    showStatus('Connected! No device challenge needed.', 'success');
+                    document.getElementById('deviceChallengeSection').style.display = 'none';
+                    // Trigger account loading
+                    document.getElementById('testButton').click();
+                    return;
+                }
+
+                state._challengeSessionToken = result.sessionToken;
+                document.getElementById('challengeCodeSection').style.display = 'block';
+                document.getElementById('challengeCode').focus();
+                showStatus('Verification code sent! Check your email or phone.', 'success');
+
+            } catch (error) {
+                showStatus('Failed to send code: ' + error.message, 'error');
+                document.getElementById('sendChallengeButton').disabled = false;
+            }
+        }
+
+        async function verifyDeviceChallenge() {
+            const code = document.getElementById('challengeCode').value.trim();
+            if (!code) {
+                showStatus('Please enter the verification code', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Verifying...', 'success');
+                document.getElementById('verifyChallengeButton').disabled = true;
+
+                const response = await fetch('/api/device-challenge/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: state.tastytradeUsername,
+                        code: code,
+                        sessionToken: state._challengeSessionToken
+                    })
+                });
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                if (result.rememberToken) {
+                    state.tastytradeRememberToken = result.rememberToken;
+                }
+
+                document.getElementById('deviceChallengeSection').style.display = 'none';
+
+                // Show accounts
+                const accountsDiv = document.getElementById('accounts');
+                accountsDiv.innerHTML = '';
+
+                result.accounts.forEach(account => {
+                    const card = document.createElement('div');
+                    card.className = 'account-card';
+                    card.innerHTML = `<strong>${account.nickname || 'Account'}</strong><br><small>${account.number}</small>`;
+                    card.onclick = () => {
+                        document.querySelectorAll('.account-card').forEach(c => c.classList.remove('selected'));
+                        card.classList.add('selected');
+                        state.tastytradeAccountNumber = account.number;
+                        document.getElementById('accountRequired').style.display = 'none';
+                        document.getElementById('continueButton').style.display = 'inline-block';
+                        document.getElementById('continueButton').disabled = false;
+                    };
+                    accountsDiv.appendChild(card);
+                });
+
+                document.getElementById('accountsList').style.display = 'block';
+                showStatus('Device verified! Select your account.', 'success');
+                document.getElementById('continueButton').style.display = 'inline-block';
+                document.getElementById('continueButton').disabled = true;
+
+                if (result.accounts.length === 1) {
+                    state.tastytradeAccountNumber = result.accounts[0].number;
+                    document.querySelector('.account-card')?.classList.add('selected');
+                    document.getElementById('continueButton').disabled = false;
+                }
+
+            } catch (error) {
+                showStatus('Verification failed: ' + error.message, 'error');
+                document.getElementById('verifyChallengeButton').disabled = false;
+                document.getElementById('challengeCode').value = '';
+                document.getElementById('challengeCode').focus();
             }
         }
 
