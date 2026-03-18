@@ -677,6 +677,9 @@
 
                 state.tastytradeUsername = username;
                 state.tastytradePassword = password;
+                if (result.rememberToken) {
+                    state.tastytradeRememberToken = result.rememberToken;
+                }
 
                 // Show accounts
                 const accountsDiv = document.getElementById('accounts');

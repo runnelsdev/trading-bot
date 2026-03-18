@@ -216,14 +216,24 @@ module.exports = (app, configManager) => {
           client = new TastytradeClient(config);
 
           try {
-            await client.sessionService.login(username, password, true);
+            const sessionData = await client.sessionService.login(username, password, true);
+            // If login succeeded without 2FA, capture remember-token
+            if (sessionData && sessionData['remember-token']) {
+              res._rememberToken = sessionData['remember-token'];
+            }
           } catch (loginError) {
-            // Check if 2FA is required (403 response)
-            if (loginError.response?.status === 403) {
+            const status = loginError.response?.status;
+            const errorData = loginError.response?.data;
+
+            console.log(`Tastytrade login returned ${status}:`, JSON.stringify(errorData));
+
+            // 403 = 2FA required
+            if (status === 403) {
+              const errorMsg = errorData?.error?.message || '';
               return res.json({
                 success: false,
                 needs_otp: true,
-                message: 'Two-factor authentication required. Please enter your one-time password.'
+                message: errorMsg || 'Two-factor authentication required. Please enter your one-time password.'
               });
             }
             throw loginError;
@@ -236,6 +246,7 @@ module.exports = (app, configManager) => {
         res.json({
           success: true,
           message: 'Connection successful',
+          rememberToken: res._rememberToken || null,
           accounts: accounts.map(acc => ({
             number: acc.account['account-number'],
             nickname: acc.account.nickname || acc.account['account-number']
