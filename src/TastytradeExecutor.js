@@ -98,13 +98,10 @@ class TastytradeExecutor {
         }
         console.log('✅ Tastytrade connected (Remember Token)');
       } catch (rememberError) {
-        console.warn('⚠️  Remember-token login failed, falling back to password...');
-        await this.client.sessionService.login(
-          this.config.tastytradeUsername,
-          this.config.tastytradePassword,
-          true
-        );
-        console.log('✅ Tastytrade connected (Session fallback)');
+        console.warn('⚠️  Remember-token login failed:', rememberError.response?.status, rememberError.response?.data || rememberError.message);
+        // Don't fall back to password — it will also fail with 2FA
+        // Instead, throw a clear error so the user knows to reconfigure
+        throw new Error('Remember-token expired or invalid. Please reconfigure via setup wizard.');
       }
     } else {
       // Session-based authentication (no remember-token)

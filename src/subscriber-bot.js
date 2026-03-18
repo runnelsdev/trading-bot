@@ -99,8 +99,26 @@ async function main() {
       
     } catch (error) {
       console.error('❌ Failed to start bot:', error.message);
-      console.error('💡 Try deleting config/bot-config.json to reconfigure');
-      process.exit(1);
+
+      // Instead of crash-looping, fall back to setup mode
+      console.log('🔧 Falling back to setup mode...');
+      const fs = require('fs');
+      const configPath = path.join(__dirname, '../config/bot-config.json');
+      if (fs.existsSync(configPath)) {
+        fs.unlinkSync(configPath);
+        console.log('   Removed invalid config');
+      }
+
+      const app = express();
+      app.use(express.json());
+      app.use(express.static(path.join(__dirname, '../public')));
+      require('../config/setup-server')(app, configManager);
+
+      const port = process.env.PORT || 3000;
+      app.listen(port, '0.0.0.0', () => {
+        console.log(`\n📝 Configuration UI available at: http://YOUR_DROPLET_IP:${port}`);
+        console.log('🔐 Please reconfigure your trading bot\n');
+      });
     }
   }
 }
