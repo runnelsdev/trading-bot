@@ -140,9 +140,12 @@ class TradingBroadcaster {
         console.log('✅ Fill data extracted:', fillData);
         // Track latency
         this.latencyMonitor.trackSignal(fillData, 'manual');
-        
+
         // Broadcast to Discord
         this.broadcastToDiscord(fillData);
+
+        // Report fill to central server for coach stats
+        this.reportFillToCentral(fillData);
       } else {
         console.log('ℹ️  Message was not a fill notification');
       }
@@ -434,6 +437,41 @@ class TradingBroadcaster {
     }
 
     return embed;
+  }
+
+  /**
+   * Report fill to central server for coach stats tracking
+   */
+  async reportFillToCentral(fillData) {
+    const centralUrl = process.env.CENTRAL_SERVER_URL;
+    const botToken = process.env.CENTRAL_BOT_TOKEN;
+    if (!centralUrl || !botToken) return;
+
+    try {
+      const axios = require('axios');
+      // Get action from legs
+      let action = 'Unknown';
+      if (fillData.legs && fillData.legs.length > 0) {
+        action = fillData.legs[0].action || fillData.legs[0]['action-type'] || 'Unknown';
+      }
+
+      await axios.post(`${centralUrl}/api/v1/bot/report-fill`, {
+        orderId: fillData.orderId,
+        symbol: fillData.symbol,
+        underlying: fillData.symbol?.trim().split(/\s+/)[0],
+        action,
+        quantity: fillData.quantity,
+        fillPrice: parseFloat(fillData.price) || 0,
+        instrumentType: fillData.legs?.[0]?.['instrument-type'] || 'Equity Option',
+        account: this.accountNumber,
+        filledAt: fillData.timestamp
+      }, {
+        timeout: 5000,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${botToken}` }
+      });
+    } catch (e) {
+      // Silent failure — don't disrupt trading
+    }
   }
 
   /**
