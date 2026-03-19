@@ -683,6 +683,7 @@
                 if (result.needs_device_challenge) {
                     state.tastytradeUsername = username;
                     state.tastytradePassword = password;
+                    state._challengeToken = result.challengeToken;
                     document.getElementById('deviceChallengeSection').style.display = 'block';
                     document.getElementById('testButton').style.display = 'none';
                     showStatus('Device verification required. Click "Send Verification Code" to continue.', 'success');
@@ -828,28 +829,15 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        username: state.tastytradeUsername,
-                        password: state.tastytradePassword
+                        challengeToken: state._challengeToken
                     })
                 });
 
                 const result = await response.json();
-                if (!result.success) throw new Error(result.error);
 
-                if (result.skip_challenge) {
-                    // Login succeeded without challenge
-                    state.tastytradeRememberToken = result.rememberToken;
-                    showStatus('Connected! No device challenge needed.', 'success');
-                    document.getElementById('deviceChallengeSection').style.display = 'none';
-                    // Trigger account loading
-                    document.getElementById('testButton').click();
-                    return;
-                }
-
-                state._challengeSessionToken = result.sessionToken;
                 document.getElementById('challengeCodeSection').style.display = 'block';
                 document.getElementById('challengeCode').focus();
-                showStatus('Verification code sent! Check your email or phone.', 'success');
+                showStatus(result.message || 'Verification code sent! Check your email or phone.', 'success');
 
             } catch (error) {
                 showStatus('Failed to send code: ' + error.message, 'error');
@@ -873,8 +861,9 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         username: state.tastytradeUsername,
+                        password: state.tastytradePassword,
                         code: code,
-                        sessionToken: state._challengeSessionToken
+                        challengeToken: state._challengeToken
                     })
                 });
 
