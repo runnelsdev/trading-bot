@@ -172,6 +172,15 @@ class PositionSizer {
   calculate(signal) {
     switch (this.config.sizingMethod) {
       case 'fixed':
+        // If fixedDollar is set, calculate contracts from dollar amount
+        if (this.config.fixedDollar && signal.price) {
+          const pricePerContract = parseFloat(signal.price) * 100; // Options multiplier
+          if (pricePerContract > 0) {
+            const qty = Math.floor(this.config.fixedDollar / pricePerContract);
+            console.log(`📊 Fixed $${this.config.fixedDollar}: $${pricePerContract}/contract → ${Math.max(qty, 1)} contracts`);
+            return Math.max(qty, 1);
+          }
+        }
         return this.config.quantity || 1;
 
       case 'multiplier':

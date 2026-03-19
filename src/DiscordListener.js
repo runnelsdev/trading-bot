@@ -280,11 +280,16 @@ class DiscordListener {
     const source = isFill ? 'fill_notification' : 'discord_embed';
     console.log(`   ✅ Parsed ${source}: ${action} ${quantity} ${symbol}`);
     
+    // Extract price from embed fields
+    const priceStr = fields.price || fields.fillprice || fields['fill-price'] || '';
+    const price = parseFloat(priceStr.replace(/[$,]/g, '')) || null;
+
     return {
       id: orderId,
       symbol: symbol.toUpperCase(),
       action: this.normalizeAction(action),
       quantity: quantity || 1,
+      price: price,
       orderType: orderType,
       timestamp: embed.timestamp || new Date(),
       source: source
