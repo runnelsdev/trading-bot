@@ -100,8 +100,36 @@ class TastytradeExecutor {
       } catch (rememberError) {
         const errData = rememberError.response?.data;
         console.warn('⚠️  Remember-token login failed:', rememberError.response?.status, JSON.stringify(errData));
-        // Don't fall back to password — it will also fail with device challenge
-        throw new Error('Remember-token expired or invalid. Please reconfigure via setup wizard.');
+        // Try password login as fallback
+        console.log('   Falling back to password login...');
+        try {
+          const sessionData = await this.client.sessionService.login(
+            this.config.tastytradeUsername,
+            this.config.tastytradePassword,
+            true
+          );
+          // Save new remember-token if returned
+          if (sessionData && sessionData['remember-token']) {
+            console.log('   Got new remember-token');
+            this.config.tastytradeRememberToken = sessionData['remember-token'];
+            try {
+              const ConfigManager = require('./ConfigManager');
+              const cm = new ConfigManager();
+              await cm.save(this.config);
+            } catch (e) {
+              console.warn('   Could not save remember-token:', e.message);
+            }
+          }
+          console.log('✅ Tastytrade connected (Password fallback)');
+        } catch (passwordError) {
+          const pwErrData = passwordError.response?.data;
+          const errCode = pwErrData?.error?.code;
+          console.error('❌ Password login also failed:', passwordError.response?.status, JSON.stringify(pwErrData));
+          if (errCode === 'device_challenge_required') {
+            throw new Error('Device verification required. Visit the setup page to verify this device.');
+          }
+          throw new Error('Tastytrade login failed: ' + (pwErrData?.error?.message || passwordError.message));
+        }
       }
     } else {
       // Session-based authentication (no remember-token)
