@@ -152,6 +152,9 @@ class ConfigManager {
       channelName: config.channelName,
       tastytradeAccountNumber: config.tastytradeAccountNumber,
       sizingMethod: config.sizingMethod,
+      percentage: config.percentage,
+      fixedDollar: config.fixedDollar,
+      coachMultiplier: config.coachMultiplier,
       maxDailyTrades: config.maxDailyTrades,
       maxDailyLoss: config.maxDailyLoss,
       configuredAt: config.configuredAt
