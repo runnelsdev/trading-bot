@@ -97,6 +97,10 @@ async function startOnlineMode(executor, botConfig, configManager) {
         botToken: process.env.CENTRAL_BOT_TOKEN
       });
 
+      // Sync config to central server via heartbeat
+      configClient.channelName = botConfig.channelName;
+      configClient.tastytradeAccount = botConfig.tastytradeAccountNumber;
+
       if (process.env.CENTRAL_DISCORD_USER_ID) {
         await configClient.authenticate(process.env.CENTRAL_DISCORD_USER_ID);
         console.log('✅ Central Server connected');

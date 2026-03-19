@@ -363,6 +363,8 @@ class ConfigClient {
         `${this.serverUrl}/api/v1/bot/heartbeat`,
         {
           deploymentId: this.deploymentId,
+          channelName: this.channelName || null,
+          tastytradeAccount: this.tastytradeAccount || null,
           metrics: {
             ...metrics,
             uptime: Math.floor((Date.now() - this.startTime) / 1000)
