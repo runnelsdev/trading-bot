@@ -160,6 +160,45 @@ class ConfigManager {
       configuredAt: config.configuredAt
     };
   }
+  /**
+   * Save session cache (session token + remember token)
+   */
+  saveSessionCache(sessionToken, rememberToken) {
+    const cachePath = path.join(__dirname, '../config/.session-cache.json');
+    const data = {
+      sessionToken: sessionToken ? this.encrypt(sessionToken) : null,
+      rememberToken: rememberToken ? this.encrypt(rememberToken) : null,
+      savedAt: new Date().toISOString()
+    };
+    fs.writeFileSync(cachePath, JSON.stringify(data, null, 2), { mode: 0o600 });
+  }
+
+  /**
+   * Load session cache
+   */
+  loadSessionCache() {
+    const cachePath = path.join(__dirname, '../config/.session-cache.json');
+    if (!fs.existsSync(cachePath)) return null;
+    try {
+      const data = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      return {
+        sessionToken: data.sessionToken ? this.decrypt(data.sessionToken) : null,
+        rememberToken: data.rememberToken ? this.decrypt(data.rememberToken) : null,
+        savedAt: data.savedAt
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Clear session cache
+   */
+  clearSessionCache() {
+    const cachePath = path.join(__dirname, '../config/.session-cache.json');
+    if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
+  }
+
 }
 
 module.exports = ConfigManager;

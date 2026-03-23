@@ -24,6 +24,13 @@ class PositionSizer {
   }
 
   /**
+   * Set an already-authenticated Tastytrade client (avoids duplicate login)
+   */
+  setClient(client) {
+    this.client = client;
+  }
+
+  /**
    * Initialize Tastytrade client for account queries
    */
   async initialize() {

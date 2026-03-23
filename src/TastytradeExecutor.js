@@ -50,32 +50,82 @@ class TastytradeExecutor {
    */
   async connect() {
     console.log('🔌 Connecting to Tastytrade...');
-    
-    // Use OAuth if available, otherwise session
+
+    const ConfigManager = require('./ConfigManager');
+    const cm = new ConfigManager();
+
+    // Helper: save session cache after successful login
+    const saveSession = (rememberToken) => {
+      try {
+        const sessionToken = this.client.session?.authToken
+          || this.client.httpClient?.session?.authToken;
+        cm.saveSessionCache(sessionToken, rememberToken || this.config.tastytradeRememberToken);
+      } catch (e) {
+        console.warn('   Could not save session cache:', e.message);
+      }
+    };
+
+    // Helper: save updated remember-token to config
+    const saveRememberToken = async (token) => {
+      if (token && token !== this.config.tastytradeRememberToken) {
+        console.log('   Refreshed remember-token');
+        this.config.tastytradeRememberToken = token;
+        try { await cm.save(this.config); } catch (e) {
+          console.warn('   Could not save remember-token:', e.message);
+        }
+      }
+    };
+
+    let connected = false;
+
+    // OAuth path (if configured)
     if (this.config.tastytradeClientSecret && this.config.tastytradeRefreshToken) {
-      // OAuth authentication
       console.log('   Using OAuth authentication...');
       this.client = new TastytradeClient({
-        ...(process.env.TASTYTRADE_ENV === 'production' 
-          ? TastytradeClient.ProdConfig 
+        ...(process.env.TASTYTRADE_ENV === 'production'
+          ? TastytradeClient.ProdConfig
           : TastytradeClient.SandboxConfig),
         clientSecret: this.config.tastytradeClientSecret,
         refreshToken: this.config.tastytradeRefreshToken,
         oauthScopes: ['read', 'trade', 'openid']
       });
-      
-      // Make a request to trigger OAuth token refresh before using streamer
       try {
         await this.client.accountsAndCustomersService.getCustomerAccounts();
-        console.log('   OAuth token validated');
+        console.log('✅ Tastytrade connected (OAuth)');
+        connected = true;
       } catch (e) {
         console.error('   OAuth token validation failed:', e.message);
         throw e;
       }
-      
-      console.log('✅ Tastytrade connected (OAuth)');
-    } else if (this.config.tastytradeRememberToken) {
-      // Session-based with remember-token (skips 2FA)
+    }
+
+    // Tier 1: Try cached session token (no login call)
+    if (!connected) {
+      const cache = cm.loadSessionCache();
+      if (cache?.sessionToken) {
+        console.log('   Trying cached session token...');
+        try {
+          if (this.client.session) {
+            this.client.session.authToken = cache.sessionToken;
+          }
+          if (this.client.httpClient?.session) {
+            this.client.httpClient.session.authToken = cache.sessionToken;
+          }
+          await this.client.accountsAndCustomersService.getCustomerAccounts();
+          if (cache.rememberToken) {
+            this.config.tastytradeRememberToken = cache.rememberToken;
+          }
+          console.log('✅ Tastytrade connected (Cached Session)');
+          connected = true;
+        } catch (e) {
+          console.log('   Cached session expired, trying next method...');
+          cm.clearSessionCache();
+        }
+      }
+    }
+
+    // Tier 2: Try remember-token (1 login call, lighter than password)
+    if (!connected && this.config.tastytradeRememberToken) {
       console.log('   Using remember-token authentication...');
       try {
         const sessionData = await this.client.sessionService.loginWithRememberToken(
@@ -83,65 +133,43 @@ class TastytradeExecutor {
           this.config.tastytradeRememberToken,
           true
         );
-        // Update remember-token if a new one was returned
-        if (sessionData['remember-token'] && sessionData['remember-token'] !== this.config.tastytradeRememberToken) {
-          console.log('   Refreshed remember-token');
-          this.config.tastytradeRememberToken = sessionData['remember-token'];
-          // Save updated token
-          try {
-            const ConfigManager = require('./ConfigManager');
-            const cm = new ConfigManager();
-            await cm.save(this.config);
-          } catch (e) {
-            console.warn('   Could not save refreshed remember-token:', e.message);
-          }
-        }
+        await saveRememberToken(sessionData['remember-token']);
+        saveSession(sessionData['remember-token']);
         console.log('✅ Tastytrade connected (Remember Token)');
+        connected = true;
       } catch (rememberError) {
-        const errData = rememberError.response?.data;
-        console.warn('⚠️  Remember-token login failed:', rememberError.response?.status, JSON.stringify(errData));
-        // Try password login as fallback
-        console.log('   Falling back to password login...');
-        try {
-          const sessionData = await this.client.sessionService.login(
-            this.config.tastytradeUsername,
-            this.config.tastytradePassword,
-            true
-          );
-          // Save new remember-token if returned
-          if (sessionData && sessionData['remember-token']) {
-            console.log('   Got new remember-token');
-            this.config.tastytradeRememberToken = sessionData['remember-token'];
-            try {
-              const ConfigManager = require('./ConfigManager');
-              const cm = new ConfigManager();
-              await cm.save(this.config);
-            } catch (e) {
-              console.warn('   Could not save remember-token:', e.message);
-            }
-          }
-          console.log('✅ Tastytrade connected (Password fallback)');
-        } catch (passwordError) {
-          const pwErrData = passwordError.response?.data;
-          const errCode = pwErrData?.error?.code;
-          console.error('❌ Password login also failed:', passwordError.response?.status, JSON.stringify(pwErrData));
-          if (errCode === 'device_challenge_required') {
-            throw new Error('Device verification required. Visit the setup page to verify this device.');
-          }
-          throw new Error('Tastytrade login failed: ' + (pwErrData?.error?.message || passwordError.message));
-        }
+        console.warn('⚠️  Remember-token failed:', rememberError.response?.status);
       }
-    } else {
-      // Session-based authentication (no remember-token)
-      console.log('   Using session authentication...');
-      await this.client.sessionService.login(
-        this.config.tastytradeUsername,
-        this.config.tastytradePassword,
-        true
-      );
-      console.log('✅ Tastytrade connected (Session)');
     }
-    
+
+    // Tier 3: Password login (last resort)
+    if (!connected) {
+      console.log('   Using password login...');
+      try {
+        const sessionData = await this.client.sessionService.login(
+          this.config.tastytradeUsername,
+          this.config.tastytradePassword,
+          true
+        );
+        await saveRememberToken(sessionData?.['remember-token']);
+        saveSession(sessionData?.['remember-token']);
+        console.log('✅ Tastytrade connected (Password)');
+        connected = true;
+      } catch (passwordError) {
+        const pwErrData = passwordError.response?.data;
+        const errCode = pwErrData?.error?.code;
+        console.error('❌ Password login failed:', passwordError.response?.status, JSON.stringify(pwErrData));
+        cm.clearSessionCache();
+        if (errCode === 'device_challenge_required') {
+          throw new Error('Device verification required. Visit the setup page to verify this device.');
+        }
+        throw new Error('Tastytrade login failed: ' + (pwErrData?.error?.message || passwordError.message));
+      }
+    }
+
+    // Share authenticated client with PositionSizer (avoids duplicate login)
+    this.sizer.setClient(this.client);
+
     // Connect to Central Server for tier validation (optional)
     if (this.configClient && process.env.CENTRAL_DISCORD_USER_ID) {
       try {
