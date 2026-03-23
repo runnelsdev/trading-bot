@@ -262,7 +262,11 @@ class PositionSizer {
     let pricePerContract = signal.price || signal.premium || 100;
 
     // Options are quoted per share but represent 100 shares
-    if (signal.assetType === 'option' || signal.instrumentType === 'option') {
+    // Detect options from explicit type OR OCC symbol format (e.g. "SPY   260323C00660000")
+    const isOption = signal.assetType === 'option'
+      || signal.instrumentType === 'option'
+      || /[A-Z]+\s+\d{6}[CP]\d{8}/.test(signal.symbol || '');
+    if (isOption) {
       pricePerContract = pricePerContract * 100;
     }
 
