@@ -88,7 +88,7 @@ discordClient.once('clientReady', async () => {
   }
 
   // Start fill polling as safety net (catches any fills the streamer misses)
-  tradingBroadcaster.startFillPolling(30000);
+  tradingBroadcaster.startFillPolling(5000);
 
   console.log('\n✅ Trading bot fully initialized!\n');
   

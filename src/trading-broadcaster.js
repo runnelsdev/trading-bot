@@ -522,8 +522,8 @@ class TradingBroadcaster {
       }
     }, intervalMs);
 
-    // Run once immediately
-    this.pollForFills().catch(function(e) { console.warn('⚠️  Initial fill poll error:', e.message); });
+    // Seed order IDs on first run (don't broadcast, just learn what's already been sent)
+    this.seedExistingFills().catch(function(e) { console.warn('⚠️  Initial fill seed error:', e.message); });
   }
 
   /**
@@ -533,6 +533,38 @@ class TradingBroadcaster {
     if (this.fillPollInterval) {
       clearInterval(this.fillPollInterval);
       this.fillPollInterval = null;
+    }
+  }
+
+  /**
+   * Seed broadcastedOrderIds with today's existing fills (no broadcast)
+   * Prevents re-broadcasting on startup
+   */
+  async seedExistingFills() {
+    try {
+      var orders = await this.tastytrade.client.orderService.getOrders(this.accountNumber);
+      if (!orders || !orders.length) return;
+
+      var today = new Date().toISOString().slice(0, 10);
+      var seeded = 0;
+
+      for (var i = 0; i < orders.length; i++) {
+        var order = orders[i];
+        var status = order.status || order['order-status'];
+        if (status !== 'Filled') continue;
+
+        var rawTime = order['updated-at'] || order['filled-at'] || 0;
+        var updatedAt = typeof rawTime === 'number' ? new Date(rawTime).toISOString() : String(rawTime || '');
+        if (updatedAt && !updatedAt.startsWith(today)) continue;
+
+        var orderId = String(order.id || order['order-id']);
+        this.broadcastedOrderIds.add(orderId);
+        seeded++;
+      }
+
+      console.log('📋 Seeded ' + seeded + ' existing fill(s) into dedup set');
+    } catch (error) {
+      console.warn('⚠️  Failed to seed existing fills:', error.message);
     }
   }
 
