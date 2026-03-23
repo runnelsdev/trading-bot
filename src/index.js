@@ -87,6 +87,9 @@ discordClient.once('clientReady', async () => {
     console.log('⚠️  Account streamer not available (may be sandbox limitation)');
   }
 
+  // Start fill polling as safety net (catches any fills the streamer misses)
+  tradingBroadcaster.startFillPolling(30000);
+
   console.log('\n✅ Trading bot fully initialized!\n');
   
   // Print latency stats every 5 minutes

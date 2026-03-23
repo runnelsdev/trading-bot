@@ -34,6 +34,11 @@ class TradingBroadcaster {
     // Account streamer for fill notifications
     this.accountStreamer = null;
     this.streamerConnected = false;
+
+    // Fill polling fallback
+    this.broadcastedOrderIds = new Set();
+    this.fillPollInterval = null;
+    this.lastPollTime = null;
   }
 
   /**
@@ -140,6 +145,9 @@ class TradingBroadcaster {
         console.log('✅ Fill data extracted:', fillData);
         // Track latency
         this.latencyMonitor.trackSignal(fillData, 'manual');
+
+        // Track order ID to prevent duplicate from poll
+        if (fillData.orderId) this.broadcastedOrderIds.add(String(fillData.orderId));
 
         // Broadcast to Discord
         this.broadcastToDiscord(fillData);
@@ -493,6 +501,119 @@ class TradingBroadcaster {
    */
   printLatencyStats(timeWindow = 3600000) {
     this.latencyMonitor.printStats(timeWindow);
+  }
+
+  /**
+   * Start polling for fills as a safety net
+   * Catches any fills the streamer misses
+   */
+  startFillPolling(intervalMs) {
+    if (!intervalMs) intervalMs = 30000;
+    if (this.fillPollInterval) return;
+
+    console.log('🔄 Fill polling started (every ' + (intervalMs / 1000) + 's)');
+    this.lastPollTime = new Date();
+
+    this.fillPollInterval = setInterval(async () => {
+      try {
+        await this.pollForFills();
+      } catch (error) {
+        console.warn('⚠️  Fill poll error:', error.message);
+      }
+    }, intervalMs);
+
+    // Run once immediately
+    this.pollForFills().catch(function(e) { console.warn('⚠️  Initial fill poll error:', e.message); });
+  }
+
+  /**
+   * Stop fill polling
+   */
+  stopFillPolling() {
+    if (this.fillPollInterval) {
+      clearInterval(this.fillPollInterval);
+      this.fillPollInterval = null;
+    }
+  }
+
+  /**
+   * Poll Tastytrade for recent filled orders and broadcast any missed
+   */
+  async pollForFills() {
+    var self = this;
+    var orders;
+    var today = new Date().toISOString().slice(0, 10);
+
+    try {
+      orders = await this.tastytrade.client.orderService.getOrders(this.accountNumber);
+    } catch (error) {
+      console.warn('⚠️  Fill poll getOrders failed:', error.message);
+      return;
+    }
+
+    this.lastPollTime = new Date();
+    if (!orders || !orders.length) return;
+
+    var newFills = 0;
+    for (var i = 0; i < orders.length; i++) {
+      var order = orders[i];
+      var status = order.status || order['order-status'];
+      if (status !== 'Filled') continue;
+
+      var orderId = String(order.id || order['order-id']);
+      if (this.broadcastedOrderIds.has(orderId)) continue;
+
+      // Only process today's orders
+      var rawTime = order['updated-at'] || order['filled-at'] || 0;
+      var updatedAt = typeof rawTime === 'number' ? new Date(rawTime).toISOString() : String(rawTime || '');
+      if (updatedAt && !String(updatedAt).startsWith(today)) continue;
+
+      var fillData = this.extractFillFromOrder(order);
+      if (!fillData) continue;
+
+      this.broadcastedOrderIds.add(orderId);
+      console.log('📡 Poll caught missed fill: ' + fillData.symbol + ' x' + fillData.quantity + ' (order ' + orderId + ')');
+      await this.broadcastToDiscord(fillData);
+      await this.reportFillToCentral(fillData);
+      newFills++;
+    }
+
+    if (newFills > 0) {
+      console.log('📡 Poll broadcast ' + newFills + ' missed fill(s)');
+    }
+
+    // Trim tracking set
+    if (this.broadcastedOrderIds.size > 500) {
+      var arr = Array.from(this.broadcastedOrderIds);
+      this.broadcastedOrderIds = new Set(arr.slice(-300));
+    }
+  }
+
+  /**
+   * Extract fill data from a Tastytrade order object (REST API format)
+   */
+  extractFillFromOrder(order) {
+    var legs = order.legs || [];
+    if (legs.length === 0) return null;
+
+    var leg = legs[0];
+    var symbol = leg.symbol || order['underlying-symbol'];
+    var action = leg.action || leg['action-type'] || 'Unknown';
+    var quantity = parseFloat(order['filled-quantity'] || order.size || leg.quantity || 0);
+    var price = parseFloat(order['avg-fill-price'] || order.price || 0);
+
+    if (!symbol || quantity === 0) return null;
+
+    return {
+      type: 'fill',
+      timestamp: (function(t) { return typeof t === 'number' ? new Date(t).toISOString() : String(t || new Date().toISOString()); })(order['updated-at'] || order['filled-at']),
+      orderId: String(order.id || order['order-id']),
+      symbol: symbol,
+      quantity: quantity,
+      price: price,
+      status: 'Filled',
+      legs: legs
+    };
   }
 }
 
