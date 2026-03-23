@@ -657,6 +657,40 @@
         }
 
         // ============================================================
+
+        // ============================================================
+        // ERROR FORMATTING
+        // ============================================================
+        function friendlyError(raw) {
+            const msg = (raw || '').toLowerCase();
+
+            if (msg.includes('unexpected token') || msg.includes('is not valid json'))
+                return 'Unable to reach the server. Please try again in a moment.';
+            if (msg.includes('status code 401') || msg.includes('invalid_credentials') || msg.includes('invalid login'))
+                return 'Incorrect username or password. Please double-check your Tastytrade credentials.';
+            if (msg.includes('status code 403'))
+                return 'Your account may be locked or requires additional verification. Please check your email or try logging in at tastytrade.com first.';
+            if (msg.includes('etimedout') || msg.includes('econnrefused') || msg.includes('econnreset') || msg.includes('enotfound'))
+                return 'Could not connect to Tastytrade. Their servers may be temporarily unavailable — please try again shortly.';
+            if (msg.includes('status code 422'))
+                return 'Tastytrade rejected the request. Please verify your credentials are correct.';
+            if (msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('network'))
+                return 'Network error — check your internet connection and try again.';
+            if (msg.includes('timeout') || msg.includes('timed out'))
+                return 'The request timed out. Tastytrade may be experiencing delays — please try again.';
+            if (msg.includes('too many') || msg.includes('rate limit'))
+                return 'Too many login attempts. Please wait a few minutes before trying again.';
+            if (msg.includes('device_challenge'))
+                return 'Tastytrade requires device verification. A code will be sent to your email or phone.';
+
+            // Strip technical prefixes for anything else
+            let clean = raw || 'Unknown error';
+            clean = clean.replace(/^Connection failed:\s*/i, '');
+            clean = clean.replace(/^Request failed with status code \d+/i, 'Tastytrade returned an error');
+
+            return clean;
+        }
+
         // API CALLS
         // ============================================================
         async function testTastytrade() {
@@ -677,7 +711,12 @@
                     body: JSON.stringify({ username, password })
                 });
 
-                const result = await response.json();
+                let result;
+                try {
+                    result = await response.json();
+                } catch (parseError) {
+                    throw new Error('unexpected token');
+                }
 
                 // Check if device challenge is required
                 if (result.needs_device_challenge) {
@@ -743,7 +782,7 @@
                 }
 
             } catch (error) {
-                showStatus('Connection failed: ' + error.message, 'error');
+                showStatus(friendlyError(error.message), 'error');
                 document.getElementById('testButton').style.display = 'inline-block';
                 document.getElementById('continueButton').style.display = 'none';
                 document.getElementById('otpSection').style.display = 'none';
@@ -813,7 +852,7 @@
                 }
 
             } catch (error) {
-                showStatus('OTP verification failed: ' + error.message, 'error');
+                showStatus(friendlyError(error.message), 'error');
                 document.getElementById('verifyOtpButton').disabled = false;
                 document.getElementById('tastyOtp').value = '';
                 document.getElementById('tastyOtp').focus();
@@ -840,7 +879,7 @@
                 showStatus(result.message || 'Verification code sent! Check your email or phone.', 'success');
 
             } catch (error) {
-                showStatus('Failed to send code: ' + error.message, 'error');
+                showStatus(friendlyError(error.message), 'error');
                 document.getElementById('sendChallengeButton').disabled = false;
             }
         }
@@ -907,7 +946,7 @@
                 }
 
             } catch (error) {
-                showStatus('Verification failed: ' + error.message, 'error');
+                showStatus(friendlyError(error.message), 'error');
                 document.getElementById('verifyChallengeButton').disabled = false;
                 document.getElementById('challengeCode').value = '';
                 document.getElementById('challengeCode').focus();
@@ -922,7 +961,7 @@
                 availableChannels = result.channels;
                 return availableChannels.length > 0;
             } catch (error) {
-                showStatus('Error: ' + error.message, 'error');
+                showStatus(friendlyError(error.message), 'error');
                 return false;
             }
         }
@@ -1012,7 +1051,7 @@
                 nextStep();
 
             } catch (error) {
-                showStatus('Save failed: ' + error.message, 'error');
+                showStatus(friendlyError(error.message), 'error');
             }
         }
 
@@ -1047,7 +1086,7 @@
                 if (!result.success) throw new Error(result.error);
                 setTimeout(() => window.location.reload(), 1500);
             } catch (error) {
-                showStatus('Reset failed: ' + error.message, 'error');
+                showStatus(friendlyError(error.message), 'error');
             }
         }
 
