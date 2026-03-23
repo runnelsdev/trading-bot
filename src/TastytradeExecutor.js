@@ -311,13 +311,36 @@ class TastytradeExecutor {
       }
       
       // Calculate position size
-      const quantity = await this.sizer.calculate(signal);
+      let quantity = await this.sizer.calculate(signal);
       
       if (quantity <= 0) {
         console.log('⚠️  Invalid quantity calculated, skipping');
         return { success: false, reason: 'invalid_quantity' };
       }
       
+
+      // Cap sell-to-close at actual position size
+      if (signal.action === 'Sell to Close' || signal.action === 'Buy to Close') {
+        try {
+          const positions = await this.client.balancesAndPositionsService.getPositionsList(
+            this.config.tastytradeAccountNumber
+          );
+          const pos = positions.find(p => p.symbol === signal.symbol);
+          const held = pos ? Math.abs(parseFloat(pos.quantity || pos['quantity-direction'] || 0)) : 0;
+
+          if (held === 0) {
+            console.log(`⚠️  No open position for ${signal.symbol}, skipping close`);
+            return { success: false, reason: 'no_position' };
+          }
+          if (quantity > held) {
+            console.log(`📊 Close capped: ${quantity} → ${held} (actual position)`);
+            quantity = held;
+          }
+        } catch (e) {
+          console.warn(`⚠️  Could not verify position size: ${e.message}, proceeding with ${quantity}`);
+        }
+      }
+
       console.log(`📊 Executing: ${signal.action} ${quantity} ${signal.symbol}`);
       
       // Determine time-in-force based on market hours
