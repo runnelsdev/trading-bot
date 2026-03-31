@@ -148,11 +148,23 @@ async function startOnlineMode(executor, botConfig, configManager) {
  * Config exists but login failed — keep config, serve management UI, retry periodically
  */
 function startOfflineMode(configManager, botConfig, errorMessage) {
+  const PERMANENT_ERRORS = ['invalid_credentials', 'invalid login', 'check your username and password'];
+  const MAX_AUTO_RETRIES = 10;
+  const BASE_INTERVAL = 5 * 60 * 1000; // 5 min
+  const MAX_INTERVAL = 60 * 60 * 1000; // 60 min cap
+
+  const isPermanent = PERMANENT_ERRORS.some(e => errorMessage.toLowerCase().includes(e));
+
   console.log('');
   console.log('═══════════════════════════════════════');
   console.log('  ❌ BOT OFFLINE - Login failed');
   console.log(`  Reason: ${errorMessage}`);
-  console.log('  Config preserved — will retry every 5 min');
+  if (isPermanent) {
+    console.log('  ⛔ Credential error — auto-retry disabled');
+    console.log('  Fix credentials via setup page or update .env');
+  } else {
+    console.log('  Config preserved — will retry with backoff');
+  }
   console.log('  Or reconfigure via the setup page');
   console.log('═══════════════════════════════════════');
   console.log('');
@@ -164,6 +176,18 @@ function startOfflineMode(configManager, botConfig, errorMessage) {
   let lastError = errorMessage;
   let retryCount = 0;
   let retrying = false;
+  let autoRetryPaused = isPermanent;
+  let retryTimer = null;
+
+  function getNextInterval() {
+    // Exponential backoff: 5m, 10m, 20m, 40m, 60m cap
+    return Math.min(BASE_INTERVAL * Math.pow(2, retryCount), MAX_INTERVAL);
+  }
+
+  function formatInterval(ms) {
+    const min = Math.round(ms / 60000);
+    return min >= 60 ? `${Math.round(min / 60)}h` : `${min}m`;
+  }
 
   app.get('/api/bot-status', (req, res) => {
     res.json({
@@ -174,15 +198,17 @@ function startOfflineMode(configManager, botConfig, errorMessage) {
       channel: botConfig?.channelName || null,
       error: lastError,
       retryCount,
-      nextRetry: '~5 min'
+      autoRetryPaused,
+      nextRetry: autoRetryPaused ? 'paused (credential error)' : `~${formatInterval(getNextInterval())}`
     });
   });
 
-  // Manual retry endpoint
+  // Manual retry endpoint (always allowed, resets backoff on success)
   app.post('/api/retry-login', async (req, res) => {
     if (retrying) {
       return res.json({ success: false, message: 'Retry already in progress' });
     }
+    autoRetryPaused = false; // Manual retry re-enables auto-retry
     const result = await attemptReconnect();
     res.json(result);
   });
@@ -195,7 +221,6 @@ function startOfflineMode(configManager, botConfig, errorMessage) {
     console.log('   Reconfigure or wait for automatic retry\n');
   });
 
-  // Retry login every 5 minutes
   async function attemptReconnect() {
     retrying = true;
     retryCount++;
@@ -217,16 +242,36 @@ function startOfflineMode(configManager, botConfig, errorMessage) {
       lastError = error.message;
       retrying = false;
       console.log(`❌ Retry #${retryCount} failed: ${error.message}`);
+
+      // Stop auto-retrying on credential errors to avoid account lockout
+      if (PERMANENT_ERRORS.some(e => error.message.toLowerCase().includes(e))) {
+        autoRetryPaused = true;
+        console.log('⛔ Credential error detected — pausing auto-retry to prevent account lockout');
+        console.log('   Fix credentials via setup page, then use /api/retry-login');
+      }
+
+      // Stop auto-retrying after max attempts
+      if (retryCount >= MAX_AUTO_RETRIES) {
+        autoRetryPaused = true;
+        console.log(`⛔ Max auto-retries (${MAX_AUTO_RETRIES}) reached — pausing auto-retry`);
+      }
+
       return { success: false, message: error.message };
     }
   }
 
-  // Auto-retry every 5 minutes
-  setInterval(() => {
-    if (!retrying) {
-      attemptReconnect();
-    }
-  }, 5 * 60 * 1000);
+  // Schedule next retry with exponential backoff
+  function scheduleRetry() {
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = setTimeout(async () => {
+      if (!retrying && !autoRetryPaused) {
+        await attemptReconnect();
+      }
+      if (!autoRetryPaused) scheduleRetry();
+    }, getNextInterval());
+  }
+
+  if (!autoRetryPaused) scheduleRetry();
 }
 
 /**
