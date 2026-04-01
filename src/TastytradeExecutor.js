@@ -406,130 +406,84 @@ class TastytradeExecutor {
       // Log order data for debugging
       console.log(`📦 Order data:`, JSON.stringify(orderData, null, 2));
       
-      // Execute order
+      // Execute order with margin retry
       const isComplex = signal.legs && signal.legs.length > 1;
       let result;
-      
-      try {
+      let attemptQty = quantity;
+
+      const submitOrder = async (data) => {
         if (isComplex) {
-          result = await this.client.orderService.createComplexOrder(
-            this.config.tastytradeAccountNumber,
-            orderData
-          );
-        } else {
-          result = await this.client.orderService.createOrder(
-            this.config.tastytradeAccountNumber,
-            orderData
-          );
+          return this.client.orderService.createComplexOrder(this.config.tastytradeAccountNumber, data);
         }
-        
-        this.tradesExecutedToday++;
-        
-        const orderId = result.data?.order?.id || result.data?.order?.['order-id'] || 'unknown';
-        console.log(`✅ Trade executed: Order ID ${orderId}`);
-        
-        // Report trade to Central Server (async, non-blocking)
-        if (this.configClient) {
-          this.configClient.reportTrade({
+        return this.client.orderService.createOrder(this.config.tastytradeAccountNumber, data);
+      };
+
+      const hasError = (errorData, code) => {
+        return errorData?.errors?.some(e => e.code === code)
+          || errorData?.error?.errors?.some(e => e.code === code);
+      };
+
+      while (attemptQty > 0) {
+        orderData.legs[0].quantity = attemptQty;
+
+        try {
+          result = await submitOrder(orderData);
+
+          this.tradesExecutedToday++;
+
+          const orderId = result.data?.order?.id || result.data?.order?.['order-id'] || 'unknown';
+          console.log(`✅ Trade executed: Order ID ${orderId}`);
+
+          // Report trade to Central Server (async, non-blocking)
+          if (this.configClient) {
+            this.configClient.reportTrade({
+              symbol: signal.symbol,
+              quantity: attemptQty,
+              fillPrice: signal.price || 0,
+              pnl: 0,
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          return {
+            success: true,
+            orderId,
+            quantity: attemptQty,
             symbol: signal.symbol,
-            quantity: quantity,
-            fillPrice: signal.price || 0,
-            pnl: 0, // Will be updated when position closes
-            timestamp: new Date().toISOString()
-          });
-        }
-        
-        return {
-          success: true,
-          orderId,
-          quantity,
-          symbol: signal.symbol,
-          action: signal.action
-        };
-      } catch (orderError) {
-        // Enhanced error logging for 422 validation errors
-        if (orderError.response) {
+            action: signal.action
+          };
+        } catch (orderError) {
+          if (!orderError.response) throw orderError;
+
           console.error(`❌ API Error (${orderError.response.status}):`, orderError.response.statusText);
           console.error(`📋 Response data:`, JSON.stringify(orderError.response.data, null, 2));
-          
-          if (orderError.response.status === 422) {
-            console.error(`\n💡 Validation Error Details:`);
-            let shouldRetry = false;
-            
-            if (orderError.response.data?.errors) {
-              for (const err of orderError.response.data.errors) {
-                console.error(`   - ${err.code || 'unknown'}: ${err.message || err}`);
-                
-                // Auto-fix suggestion for time-in-force errors
-                if (err.code === 'tif_day_invalid_intersession') {
-                  shouldRetry = true;
-                }
-              }
+
+          const errData = orderError.response.data;
+
+          // Margin check failed — reduce quantity and retry
+          if (orderError.response.status === 422 && hasError(errData, 'margin_check_failed')) {
+            attemptQty--;
+            if (attemptQty > 0) {
+              console.log(`📊 Margin insufficient for ${attemptQty + 1} contracts, retrying with ${attemptQty}`);
+              continue;
             }
-            
-            if (orderError.response.data?.message) {
-              console.error(`   Message: ${orderError.response.data.message}`);
-            }
-            
-            // Retry with GTC if we got the time-in-force error (GTC works outside regular hours)
-            if (shouldRetry) {
-              console.error(`\n💡 Suggestion: Retry with GTC (Good Till Canceled) time-in-force`);
-              console.error(`   GTC orders can be placed outside regular trading hours`);
-              console.error(`   The order will be retried automatically with GTC...`);
-              
-              // Retry with GTC (Good Till Canceled) which works outside regular hours
-              orderData['time-in-force'] = 'GTC';
-              console.log(`🔄 Retrying order with GTC time-in-force...`);
-              
-              try {
-                if (isComplex) {
-                  result = await this.client.orderService.createComplexOrder(
-                    this.config.tastytradeAccountNumber,
-                    orderData
-                  );
-                } else {
-                  result = await this.client.orderService.createOrder(
-                    this.config.tastytradeAccountNumber,
-                    orderData
-                  );
-                }
-                
-                this.tradesExecutedToday++;
-                const orderId = result.data?.order?.id || result.data?.order?.['order-id'] || 'unknown';
-                console.log(`✅ Trade executed (with GTC): Order ID ${orderId}`);
-                
-                // Report trade to Central Server (async, non-blocking)
-                if (this.configClient) {
-                  this.configClient.reportTrade({
-                    symbol: signal.symbol,
-                    quantity: quantity,
-                    fillPrice: signal.price || 0,
-                    pnl: 0,
-                    timestamp: new Date().toISOString()
-                  });
-                }
-                
-                return {
-                  success: true,
-                  orderId,
-                  quantity,
-                  symbol: signal.symbol,
-                  action: signal.action,
-                  timeInForce: 'GTC'
-                };
-              } catch (retryError) {
-                console.error(`❌ Retry also failed: ${retryError.message}`);
-                if (retryError.response) {
-                  console.error(`   Status: ${retryError.response.status}`);
-                  console.error(`   Data:`, JSON.stringify(retryError.response.data, null, 2));
-                }
-                throw retryError;
-              }
-            }
+            console.log(`⚠️  Margin insufficient even for 1 contract, skipping`);
+            return { success: false, reason: 'insufficient_buying_power', error: 'margin_check_failed' };
           }
+
+          // Time-in-force error — retry with GTC
+          if (orderError.response.status === 422 && hasError(errData, 'tif_day_invalid_intersession')) {
+            console.log(`🔄 Retrying order with GTC time-in-force...`);
+            orderData['time-in-force'] = 'GTC';
+            continue;
+          }
+
+          throw orderError;
         }
-        throw orderError; // Re-throw to be caught by outer catch
       }
+
+      // Should not reach here, but just in case
+      return { success: false, reason: 'insufficient_buying_power', error: 'quantity reduced to zero' };
       
     } catch (error) {
       console.error('❌ Trade execution failed:', error.message);
