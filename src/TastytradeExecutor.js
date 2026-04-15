@@ -319,7 +319,7 @@ class TastytradeExecutor {
       }
       
 
-      // Cap sell-to-close at actual position size
+      // Close orders: always close the full position
       if (signal.action === 'Sell to Close' || signal.action === 'Buy to Close') {
         try {
           const positions = await this.client.balancesAndPositionsService.getPositionsList(
@@ -332,8 +332,8 @@ class TastytradeExecutor {
             console.log(`⚠️  No open position for ${signal.symbol}, skipping close`);
             return { success: false, reason: 'no_position' };
           }
-          if (quantity > held) {
-            console.log(`📊 Close capped: ${quantity} → ${held} (actual position)`);
+          if (quantity !== held) {
+            console.log(`📊 Close adjusted: ${quantity} → ${held} (full position)`);
             quantity = held;
           }
         } catch (e) {
