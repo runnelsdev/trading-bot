@@ -358,16 +358,11 @@ class TastytradeExecutor {
             }
 
           } else {
-            // Fixed / percentage: use calculated quantity as trim, close rest if remainder too small
-            quantity = Math.min(quantity, held);
-            const remaining = held - quantity;
-            // If remainder is <= quantity or <= 2, just close everything
-            if (remaining > 0 && (remaining <= 2 || remaining <= quantity)) {
-              console.log(`📊 Close (${method}): ${quantity} + closing ${remaining} remaining → ${held}`);
-              quantity = held;
-            } else {
-              console.log(`📊 Close (${method}): closing ${quantity} of ${held}`);
-            }
+            // Fixed / percentage: always close full position
+            // These methods size by dollar amount, not by coach ratio,
+            // so partial closes would leave unpredictable orphans
+            console.log(`📊 Close (${method}): closing full position ${held}`);
+            quantity = held;
           }
         } catch (e) {
           console.warn(`⚠️  Could not verify position size: ${e.message}, proceeding with ${quantity}`);
