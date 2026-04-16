@@ -310,16 +310,21 @@ class TastytradeExecutor {
         return { success: false, reason: 'loss_limit' };
       }
       
-      // Calculate position size (used for opens, and as input for some close methods)
-      let quantity = await this.sizer.calculate(signal);
+      const isClose = signal.action === 'Sell to Close' || signal.action === 'Buy to Close';
 
-      if (quantity <= 0) {
-        console.log('⚠️  Invalid quantity calculated, skipping');
-        return { success: false, reason: 'invalid_quantity' };
+      // Calculate position size — only used for opening orders
+      // Close orders determine quantity from actual position, not the sizer
+      let quantity;
+      if (!isClose) {
+        quantity = await this.sizer.calculate(signal);
+        if (quantity <= 0) {
+          console.log('⚠️  Invalid quantity calculated, skipping');
+          return { success: false, reason: 'invalid_quantity' };
+        }
       }
 
-      // Close orders: sizing depends on method
-      if (signal.action === 'Sell to Close' || signal.action === 'Buy to Close') {
+      // Close orders: quantity based on actual position, not sizing method
+      if (isClose) {
         try {
           const positions = await this.client.balancesAndPositionsService.getPositionsList(
             this.config.tastytradeAccountNumber
@@ -347,7 +352,7 @@ class TastytradeExecutor {
               console.log(`📊 Close (exact): coach ${coachQty} → closing ${quantity} of ${held}`);
 
             } else if (method === 'proportional') {
-              // Proportional: close same % as coach using balance ratio
+              // Proportional partial close: scale coach's close qty by balance ratio
               if (this.sizer.cachedRatio !== null) {
                 quantity = Math.round(coachQty * this.sizer.cachedRatio);
               }
