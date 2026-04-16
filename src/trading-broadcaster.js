@@ -138,29 +138,34 @@ class TradingBroadcaster {
       console.log('\n📨 Account Streamer Message Received:');
       console.log(JSON.stringify(message, null, 2));
 
-      // Track coach positions from CurrentPosition messages
-      if (message.type === 'CurrentPosition' && message.data) {
-        const sym = message.data.symbol;
-        const qty = Math.abs(parseFloat(message.data.quantity || 0));
-        if (sym) {
-          if (!this.coachPositions) this.coachPositions = {};
-          this.coachPositions[sym] = qty;
-        }
-      }
-
       // Parse message to extract fill information
       const fillData = this.extractFillData(message);
 
       if (fillData) {
-        // Detect full close: if coach is closing and close qty >= last known position
-        if (fillData.legs && fillData.legs.length > 0) {
-          const action = (fillData.legs[0].action || '').toLowerCase();
-          if (action.includes('close') && this.coachPositions) {
-            const lastKnown = this.coachPositions[fillData.symbol] || 0;
-            if (lastKnown > 0 && fillData.quantity >= lastKnown) {
-              fillData.fullClose = true;
-              console.log(`📊 Full close detected: ${fillData.quantity} >= ${lastKnown} position`);
-            }
+        // Track coach's open quantities from BTO/BTC fills
+        if (!this.coachOpenQty) this.coachOpenQty = {};
+        const action = fillData.legs?.[0]?.action || '';
+        const sym = fillData.symbol;
+
+        if (action.includes('Open') && sym) {
+          // Accumulate opens
+          this.coachOpenQty[sym] = (this.coachOpenQty[sym] || 0) + fillData.quantity;
+          console.log(`📊 Coach position tracked: ${sym} = ${this.coachOpenQty[sym]}`);
+        } else if (action.includes('Close') && sym) {
+          // Accumulate closes and check if fully closed
+          if (!this.coachCloseQty) this.coachCloseQty = {};
+          this.coachCloseQty[sym] = (this.coachCloseQty[sym] || 0) + fillData.quantity;
+          const opened = this.coachOpenQty[sym] || 0;
+          const closed = this.coachCloseQty[sym];
+
+          if (opened > 0 && closed >= opened) {
+            fillData.fullClose = true;
+            console.log(`📊 Full close detected: closed ${closed} of ${opened} opened for ${sym}`);
+            // Reset tracking for this symbol
+            delete this.coachOpenQty[sym];
+            delete this.coachCloseQty[sym];
+          } else {
+            console.log(`📊 Partial close: closed ${closed}/${opened} for ${sym}`);
           }
         }
 
