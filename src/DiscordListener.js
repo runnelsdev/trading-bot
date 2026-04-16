@@ -284,6 +284,10 @@ class DiscordListener {
     const priceStr = fields.price || fields.fillprice || fields['fill-price'] || '';
     const price = parseFloat(priceStr.replace(/[$,]/g, '')) || null;
 
+    // Check for full close flag from broadcaster
+    const closeType = fields.closetype || fields['closetype'] || null;
+    const fullClose = closeType === 'Full Close';
+
     return {
       id: orderId,
       symbol: symbol.toUpperCase(),
@@ -292,7 +296,8 @@ class DiscordListener {
       price: price,
       orderType: orderType,
       timestamp: embed.timestamp || new Date(),
-      source: source
+      source: source,
+      fullClose: fullClose
     };
   }
 

@@ -137,11 +137,33 @@ class TradingBroadcaster {
       // DEBUG: Log all incoming messages
       console.log('\n📨 Account Streamer Message Received:');
       console.log(JSON.stringify(message, null, 2));
-      
+
+      // Track coach positions from CurrentPosition messages
+      if (message.type === 'CurrentPosition' && message.data) {
+        const sym = message.data.symbol;
+        const qty = Math.abs(parseFloat(message.data.quantity || 0));
+        if (sym) {
+          if (!this.coachPositions) this.coachPositions = {};
+          this.coachPositions[sym] = qty;
+        }
+      }
+
       // Parse message to extract fill information
       const fillData = this.extractFillData(message);
-      
+
       if (fillData) {
+        // Detect full close: if coach is closing and close qty >= last known position
+        if (fillData.legs && fillData.legs.length > 0) {
+          const action = (fillData.legs[0].action || '').toLowerCase();
+          if (action.includes('close') && this.coachPositions) {
+            const lastKnown = this.coachPositions[fillData.symbol] || 0;
+            if (lastKnown > 0 && fillData.quantity >= lastKnown) {
+              fillData.fullClose = true;
+              console.log(`📊 Full close detected: ${fillData.quantity} >= ${lastKnown} position`);
+            }
+          }
+        }
+
         console.log('✅ Fill data extracted:', fillData);
         // Track latency
         this.latencyMonitor.trackSignal(fillData, 'manual');
@@ -438,6 +460,11 @@ class TradingBroadcaster {
 
     // Add status
     embed.addFields({ name: 'Status', value: signal.status || 'Filled', inline: true });
+
+    // Add full close flag so subscribers close their entire position
+    if (signal.fullClose) {
+      embed.addFields({ name: 'Close Type', value: 'Full Close', inline: true });
+    }
 
     // Add order ID in footer (DiscordListener can extract from here)
     if (signal.orderId) {

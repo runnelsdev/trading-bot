@@ -332,37 +332,40 @@ class TastytradeExecutor {
             return { success: false, reason: 'no_position' };
           }
 
-          const method = this.config.sizingMethod;
-          const coachQty = signal.quantity || 1;
-
-          if (method === 'multiplier') {
-            // Exact follow: close same quantity as coach, capped at position
-            quantity = Math.min(coachQty, held);
-            console.log(`📊 Close (exact): coach ${coachQty} → closing ${quantity} of ${held}`);
-
-          } else if (method === 'proportional') {
-            // Proportional: close same % as coach
-            // Use ratio: followerClose = coachClose * (followerHeld / coachHeld_estimate)
-            // Since we don't know coach's total position, use the pre-computed balance ratio
-            if (this.sizer.cachedRatio !== null) {
-              quantity = Math.round(coachQty * this.sizer.cachedRatio);
-            }
-            quantity = Math.min(quantity, held);
-            // Orphan failsafe: if closing would leave 1-2 contracts, close all
-            const remaining = held - quantity;
-            if (remaining > 0 && remaining <= 2) {
-              console.log(`📊 Close (proportional): ${quantity} + ${remaining} orphan cleanup → ${held}`);
-              quantity = held;
-            } else {
-              console.log(`📊 Close (proportional): coach ${coachQty} → closing ${quantity} of ${held}`);
-            }
+          // Full close from coach → close everything regardless of sizing method
+          if (signal.fullClose) {
+            console.log(`📊 Close (full): coach closed out → closing all ${held}`);
+            quantity = held;
 
           } else {
-            // Fixed / percentage: always close full position
-            // These methods size by dollar amount, not by coach ratio,
-            // so partial closes would leave unpredictable orphans
-            console.log(`📊 Close (${method}): closing full position ${held}`);
-            quantity = held;
+            const method = this.config.sizingMethod;
+            const coachQty = signal.quantity || 1;
+
+            if (method === 'multiplier') {
+              // Exact follow: close same quantity as coach, capped at position
+              quantity = Math.min(coachQty, held);
+              console.log(`📊 Close (exact): coach ${coachQty} → closing ${quantity} of ${held}`);
+
+            } else if (method === 'proportional') {
+              // Proportional: close same % as coach using balance ratio
+              if (this.sizer.cachedRatio !== null) {
+                quantity = Math.round(coachQty * this.sizer.cachedRatio);
+              }
+              quantity = Math.min(quantity, held);
+              // Orphan failsafe: if closing would leave 1-2 contracts, close all
+              const remaining = held - quantity;
+              if (remaining > 0 && remaining <= 2) {
+                console.log(`📊 Close (proportional): ${quantity} + ${remaining} orphan cleanup → ${held}`);
+                quantity = held;
+              } else {
+                console.log(`📊 Close (proportional): coach ${coachQty} → closing ${quantity} of ${held}`);
+              }
+
+            } else {
+              // Fixed / percentage: always close full position
+              console.log(`📊 Close (${method}): closing full position ${held}`);
+              quantity = held;
+            }
           }
         } catch (e) {
           console.warn(`⚠️  Could not verify position size: ${e.message}, proceeding with ${quantity}`);
