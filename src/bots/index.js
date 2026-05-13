@@ -1,8 +1,8 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
-const TradingBroadcaster = require('./trading-broadcaster');
-const FillBroadcaster = require('./fill-broadcaster');
-const ConfigClient = require('./ConfigClient');
+const TradingBroadcaster = require('../services/trading-broadcaster');
+const FillBroadcaster = require('../services/fill-broadcaster');
+const ConfigClient = require('../clients/ConfigClient');
 
 // Handle uncaught exceptions to prevent crashes from library issues
 process.on('uncaughtException', (error) => {

@@ -18,7 +18,7 @@
 
 require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
-const FillBroadcaster = require('./fill-broadcaster');
+const FillBroadcaster = require('../services/fill-broadcaster');
 
 const client = new Client({
   intents: [

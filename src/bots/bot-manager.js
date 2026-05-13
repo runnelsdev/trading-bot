@@ -13,7 +13,7 @@ const path = require('path');
 const BOTS = [
   {
     name: 'Main Trading Bot',
-    script: 'src/index.js',
+    script: 'src/bots/index.js',
     enabled: true,
     restartDelay: 5000,      // 5 seconds before restart
     maxRestarts: 10,         // Max restarts in restart window
@@ -21,7 +21,7 @@ const BOTS = [
   },
   {
     name: 'Live Fills Integration',
-    script: 'src/live-fills-integration.js',
+    script: 'src/bots/live-fills-integration.js',
     enabled: true,
     restartDelay: 5000,
     maxRestarts: 10,
@@ -29,7 +29,7 @@ const BOTS = [
   },
   {
     name: 'Subscriber Bot',
-    script: 'src/subscriber-bot.js',
+    script: 'src/bots/subscriber-bot.js',
     enabled: true,
     restartDelay: 5000,
     maxRestarts: 10,
@@ -37,7 +37,7 @@ const BOTS = [
   },
   {
     name: 'Fill Follower Bot',
-    script: 'src/fill-follower-bot.js',
+    script: 'src/bots/fill-follower-bot.js',
     enabled: true,
     restartDelay: 5000,
     maxRestarts: 10,

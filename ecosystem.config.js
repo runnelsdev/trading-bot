@@ -14,7 +14,7 @@ module.exports = {
     },
     {
       name: 'update-sidecar',
-      script: 'src/update-sidecar.js',
+      script: 'src/utils/update-sidecar.js',
       cwd: '/opt/trading-bot',
       min_uptime: 10000,
       max_restarts: 5,

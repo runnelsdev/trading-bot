@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
-const FillBroadcaster = require('./fill-broadcaster');
+const FillBroadcaster = require('../src/services/fill-broadcaster');
 
 /**
  * Fill Notification Test Suite
