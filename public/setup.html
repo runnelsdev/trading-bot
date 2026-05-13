@@ -314,12 +314,12 @@
                 <div class="progress-number">1</div>
                 <div>Tastytrade</div>
             </div>
-            <div class="progress-step" data-step="2">
+            <div class="progress-step" data-step="2" style="display:none;">
                 <div class="progress-number">2</div>
                 <div>Channel</div>
             </div>
             <div class="progress-step" data-step="3">
-                <div class="progress-number">3</div>
+                <div class="progress-number">2</div>
                 <div>Settings</div>
             </div>
         </div>
@@ -531,9 +531,9 @@
             tastytradeUsername: '',
             tastytradePassword: '',
             tastytradeAccountNumber: '',
-            // Channel
-            channelId: '',
-            channelName: '',
+            // Channel (hard-coded to VIP — subscriber bots only follow vip_channel)
+            channelId: '1443238719707680959',
+            channelName: 'vip_channel',
             // Sizing - THREE MUTUALLY EXCLUSIVE OPTIONS
             sizingMode: 'percentage',  // 'percentage' | 'fixed' | 'proportional'
             percentage: 2,
@@ -638,9 +638,9 @@
                 progressCurrent.classList.remove('active');
             }
             currentStep++;
+            if (currentStep === 2) currentStep++;  // Skip channel selection — hard-coded to vip_channel
             document.querySelector(`.step[data-step="${currentStep}"]`)?.classList.add('active');
             document.querySelector(`.progress-step[data-step="${currentStep}"]`)?.classList.add('active');
-            if (currentStep === 2) renderChannels();
         }
 
         function prevStep() {
@@ -648,6 +648,7 @@
             document.querySelector(`.step[data-step="${currentStep}"]`)?.classList.remove('active');
             document.querySelector(`.progress-step[data-step="${currentStep}"]`)?.classList.remove('active');
             currentStep--;
+            if (currentStep === 2) currentStep--;  // Skip channel selection
             document.querySelector(`.step[data-step="${currentStep}"]`)?.classList.add('active');
             const progressPrev = document.querySelector(`.progress-step[data-step="${currentStep}"]`);
             if (progressPrev) {
@@ -971,8 +972,7 @@
                 document.getElementById('accountRequired').style.display = 'block';
                 return;
             }
-            showStatus('Loading channels...', 'success');
-            if (await loadChannels()) nextStep();
+            nextStep();
         }
 
         function renderChannels() {
