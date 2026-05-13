@@ -1,10 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const ConfigManager = require('./ConfigManager');
-const DiscordListener = require('./DiscordListener');
-const TastytradeExecutor = require('./TastytradeExecutor');
-const ConfigClient = require('./ConfigClient');
+const ConfigManager = require('../config/ConfigManager');
+const DiscordListener = require('../clients/DiscordListener');
+const TastytradeExecutor = require('../services/TastytradeExecutor');
+const ConfigClient = require('../clients/ConfigClient');
 
 /**
  * Subscriber Bot Main Entry Point
@@ -114,7 +114,7 @@ async function startOnlineMode(executor, botConfig, configManager) {
   // Start web server for management
   const app = express();
   app.use(express.json());
-  app.use(express.static(path.join(__dirname, '../public')));
+  app.use(express.static(path.join(__dirname, '../../public')));
 
   const startedAt = new Date().toISOString();
   app.get('/api/bot-status', (req, res) => {
@@ -171,7 +171,7 @@ function startOfflineMode(configManager, botConfig, errorMessage) {
 
   const app = express();
   app.use(express.json());
-  app.use(express.static(path.join(__dirname, '../public')));
+  app.use(express.static(path.join(__dirname, '../../public')));
 
   let lastError = errorMessage;
   let retryCount = 0;
@@ -282,7 +282,7 @@ function startSetupMode(configManager, message) {
 
   const app = express();
   app.use(express.json());
-  app.use(express.static(path.join(__dirname, '../public')));
+  app.use(express.static(path.join(__dirname, '../../public')));
 
   app.get('/api/bot-status', (req, res) => {
     res.json({

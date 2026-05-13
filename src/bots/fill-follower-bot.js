@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
 const TastytradeClient = require('@tastytrade/api').default;
-const PositionSizer = require('./PositionSizer');
+const PositionSizer = require('../services/PositionSizer');
 
 /**
  * Fill Follower Bot

@@ -11,8 +11,8 @@ require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
 
 // Import your existing components
-const TastytradeExecutor = require('./TastytradeExecutor');
-const FillBroadcaster = require('./fill-broadcaster');
+const TastytradeExecutor = require('../services/TastytradeExecutor');
+const FillBroadcaster = require('../services/fill-broadcaster');
 
 // Discord client
 const client = new Client({

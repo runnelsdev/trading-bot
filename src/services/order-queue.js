@@ -1,5 +1,5 @@
 require('dotenv').config();
-const TastytradeIntegration = require('./tastytrade-client');
+const TastytradeIntegration = require('../clients/tastytrade-client');
 
 /**
  * Order Queue Manager

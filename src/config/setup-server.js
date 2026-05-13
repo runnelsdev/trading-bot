@@ -73,12 +73,12 @@ module.exports = (app, configManager) => {
   
   // Serve configuration page
   app.get('/', (req, res) => {
-    res.sendFile('setup.html', { root: path.join(__dirname, '../public') });
+    res.sendFile('setup.html', { root: path.join(__dirname, '../../public') });
   });
 
   // Serve setup page (even when configured, for reconfiguration)
   app.get('/setup', (req, res) => {
-    res.sendFile('setup.html', { root: path.join(__dirname, '../public') });
+    res.sendFile('setup.html', { root: path.join(__dirname, '../../public') });
   });
 
   // Health check

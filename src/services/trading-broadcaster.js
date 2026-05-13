@@ -1,9 +1,9 @@
 require('dotenv').config();
 const { EmbedBuilder } = require('discord.js');
-const TastytradeIntegration = require('./tastytrade-client');
+const TastytradeIntegration = require('../clients/tastytrade-client');
 const OrderQueueManager = require('./order-queue');
-const LatencyMonitor = require('./latency-monitor');
-const MarketDataHelper = require('./market-data-helper');
+const LatencyMonitor = require('../monitoring/latency-monitor');
+const MarketDataHelper = require('../monitoring/market-data-helper');
 const queueConfig = require('../config/queue-config');
 
 /**

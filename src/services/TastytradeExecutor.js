@@ -1,6 +1,6 @@
 const TastytradeClient = require('@tastytrade/api').default;
 const PositionSizer = require('./PositionSizer');
-const ConfigClient = require('./ConfigClient');
+const ConfigClient = require('../clients/ConfigClient');
 
 /**
  * Tastytrade Executor
@@ -51,7 +51,7 @@ class TastytradeExecutor {
   async connect() {
     console.log('🔌 Connecting to Tastytrade...');
 
-    const ConfigManager = require('./ConfigManager');
+    const ConfigManager = require('../config/ConfigManager');
     const cm = new ConfigManager();
 
     // Helper: save session cache after successful login

@@ -27,9 +27,9 @@ class UpdateSidecar {
     this.enableNpmUpdates = options.enableNpmUpdates !== false;
     this.enableEnvSync = options.enableEnvSync !== false;
     this.autoRestart = options.autoRestart !== false;
-    this.logFile = options.logFile || path.join(__dirname, '../logs/update-sidecar.log');
-    this.pidFile = options.pidFile || path.join(__dirname, '../logs/update-sidecar.pid');
-    this.envFile = options.envFile || path.join(__dirname, '../.env');
+    this.logFile = options.logFile || path.join(__dirname, '../../logs/update-sidecar.log');
+    this.pidFile = options.pidFile || path.join(__dirname, '../../logs/update-sidecar.pid');
+    this.envFile = options.envFile || path.join(__dirname, '../../.env');
     this.centralServerUrl = options.centralServerUrl || process.env.CENTRAL_SERVER_URL;
     this.centralBotToken = options.centralBotToken || process.env.CENTRAL_BOT_TOKEN;
 

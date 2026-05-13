@@ -1,8 +1,8 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, ActivityType } = require('discord.js');
-const SignalRelay = require('./signal-relay');
-const FillBroadcaster = require('./fill-broadcaster');
-const TradingBroadcaster = require('./trading-broadcaster');
+const SignalRelay = require('../src/services/signal-relay');
+const FillBroadcaster = require('../src/services/fill-broadcaster');
+const TradingBroadcaster = require('../src/services/trading-broadcaster');
 
 /**
  * Signal Relay Bot

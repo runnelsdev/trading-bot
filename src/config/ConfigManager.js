@@ -8,7 +8,7 @@ const crypto = require('crypto');
  */
 class ConfigManager {
   constructor() {
-    this.configPath = path.join(__dirname, '../config/bot-config.json');
+    this.configPath = path.join(__dirname, '../../config/bot-config.json');
     this.encryptionKey = this.getOrCreateEncryptionKey();
   }
 
@@ -16,7 +16,7 @@ class ConfigManager {
    * Get or create encryption key
    */
   getOrCreateEncryptionKey() {
-    const keyPath = path.join(__dirname, '../config/.encryption-key');
+    const keyPath = path.join(__dirname, '../../config/.encryption-key');
     
     if (fs.existsSync(keyPath)) {
       return fs.readFileSync(keyPath, 'utf8').trim();
@@ -164,7 +164,7 @@ class ConfigManager {
    * Save session cache (session token + remember token)
    */
   saveSessionCache(sessionToken, rememberToken) {
-    const cachePath = path.join(__dirname, '../config/.session-cache.json');
+    const cachePath = path.join(__dirname, '../../config/.session-cache.json');
     const data = {
       sessionToken: sessionToken ? this.encrypt(sessionToken) : null,
       rememberToken: rememberToken ? this.encrypt(rememberToken) : null,
@@ -177,7 +177,7 @@ class ConfigManager {
    * Load session cache
    */
   loadSessionCache() {
-    const cachePath = path.join(__dirname, '../config/.session-cache.json');
+    const cachePath = path.join(__dirname, '../../config/.session-cache.json');
     if (!fs.existsSync(cachePath)) return null;
     try {
       const data = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
@@ -195,7 +195,7 @@ class ConfigManager {
    * Clear session cache
    */
   clearSessionCache() {
-    const cachePath = path.join(__dirname, '../config/.session-cache.json');
+    const cachePath = path.join(__dirname, '../../config/.session-cache.json');
     if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
   }
 

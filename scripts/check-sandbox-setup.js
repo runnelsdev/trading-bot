@@ -1,5 +1,5 @@
 require('dotenv').config();
-const TastytradeIntegration = require('./tastytrade-client');
+const TastytradeIntegration = require('../src/clients/tastytrade-client');
 
 async function checkSetup() {
   console.log('🔍 Checking Tastytrade Sandbox Setup...\n');
